@@ -19,19 +19,21 @@
 
 #include "thpool.h"
 
-struct tcp_server_pool {     // Represents a pool of connected descriptors
-    int maxfd;               // Largest descriptor in read_set
-    fd_set read_set;         // Set of all active descriptors
-    fd_set ready_set;        // Subset of descriptors ready for reading
-    int nready;              // Number of ready descriptors from select
-    int maxi;                // High water index into client array
-    int connfd[FD_SETSIZE];  // Set of active descriptors
+struct tcp_server_pool
+{                           // Represents a pool of connected descriptors
+    int maxfd;              // Largest descriptor in read_set
+    fd_set read_set;        // Set of all active descriptors
+    fd_set ready_set;       // Subset of descriptors ready for reading
+    int nready;             // Number of ready descriptors from select
+    int maxi;               // High water index into client array
+    int connfd[FD_SETSIZE]; // Set of active descriptors
     pthread_mutex_t mutex[FD_SETSIZE];
     struct tcp_buffer *read_buf[FD_SETSIZE];
     struct tcp_buffer *write_buf[FD_SETSIZE];
 };
 
-typedef struct tcp_server_ {
+typedef struct tcp_server_
+{
     void (*add_client)(int id);
     int (*handle_client)(int id, tcp_buffer *write_buf, char *msg, int len);
     void (*clear_client)(int id);
@@ -41,17 +43,21 @@ typedef struct tcp_server_ {
     threadpool thpool;
 } tcp_server_;
 
-typedef struct tcp_client_ {
+typedef struct tcp_client_
+{
     int sockfd;
     struct tcp_buffer *read_buf;
     struct tcp_buffer *write_buf;
 } tcp_client_;
 
 /* Initialize a pool */
-void init_pool(int listenfd, struct tcp_server_pool *p) {
+void init_pool(int listenfd, struct tcp_server_pool *p)
+{
     p->maxi = 1;
-    for (int i = 0; i < FD_SETSIZE; i++) p->connfd[i] = -1;
-    for (int i = 0; i < FD_SETSIZE; i++) pthread_mutex_init(&p->mutex[i], NULL);
+    for (int i = 0; i < FD_SETSIZE; i++)
+        p->connfd[i] = -1;
+    for (int i = 0; i < FD_SETSIZE; i++)
+        pthread_mutex_init(&p->mutex[i], NULL);
 
     p->maxfd = listenfd;
     FD_ZERO(&p->read_set);
@@ -59,33 +65,42 @@ void init_pool(int listenfd, struct tcp_server_pool *p) {
 }
 
 /* Add a new connection to the pool */
-void add_conn(int connfd, struct tcp_server_pool *p, void (*add_client)(int)) {
+void add_conn(int connfd, struct tcp_server_pool *p, void (*add_client)(int))
+{
     int i;
     p->nready--;
-    for (i = 0; i < FD_SETSIZE; i++) {
-        if (p->connfd[i] < 0) {
+    for (i = 0; i < FD_SETSIZE; i++)
+    {
+        if (p->connfd[i] < 0)
+        {
             p->connfd[i] = connfd;
             p->read_buf[i] = init_buffer();
             p->write_buf[i] = init_buffer();
-            if (add_client) add_client(i);
+            if (add_client)
+                add_client(i);
             printf("New client: %d\n", connfd);
             FD_SET(connfd, &p->read_set);
-            if (connfd > p->maxfd) p->maxfd = connfd;
-            if (i > p->maxi) p->maxi = i;
+            if (connfd > p->maxfd)
+                p->maxfd = connfd;
+            if (i > p->maxi)
+                p->maxi = i;
             break;
         }
     }
-    if (i == FD_SETSIZE) printf("Too many clients");
+    if (i == FD_SETSIZE)
+        printf("Too many clients");
 }
 
 /* Arguments for handle_read */
-typedef struct handle_read_args {
+typedef struct handle_read_args
+{
     tcp_server_ *server;
     int i;
 } handle_read_args;
 
 /* Handle read, running in a thread */
-void handle_read(void *arg_p) {
+void handle_read(void *arg_p)
+{
     handle_read_args *arg = (handle_read_args *)arg_p;
     tcp_server_ *server = arg->server;
     int i = arg->i;
@@ -100,20 +115,25 @@ void handle_read(void *arg_p) {
     int close_flag = 0;
 
     // handle
-    if (count > 0) {
+    if (count > 0)
+    {
         printf("Server received %d bytes on fd %d\n", count, connfd);
 
-        while (1) {
+        while (1)
+        {
             int readable = read_buf->write_index - read_buf->read_index;
             char *s = &read_buf->buf[read_buf->read_index];
-            if (readable < 4) break;
+            if (readable < 4)
+                break;
             // network long to host long
             int len = ntohl(*(int *)s);
-            if (readable >= len + 4) {
+            if (readable >= len + 4)
+            {
                 if (server->handle_client(i, write_buf, s + 4, len) < 0)
                     close_flag = 1;
                 recycle_read(read_buf, len + 4);
-            } else
+            }
+            else
                 break;
         }
     }
@@ -121,11 +141,13 @@ void handle_read(void *arg_p) {
     // write
     buffer_output(write_buf, connfd);
 
-    if (count < 0 || close_flag) {
+    if (count < 0 || close_flag)
+    {
         printf("client %d exited\n", connfd);
         free(p->read_buf[i]);
         free(p->write_buf[i]);
-        if (server->clear_client) server->clear_client(i);
+        if (server->clear_client)
+            server->clear_client(i);
         close(connfd);
         FD_CLR(connfd, &p->read_set);
         p->connfd[i] = -1;
@@ -138,14 +160,16 @@ void handle_read(void *arg_p) {
 tcp_server_ *server_init(int port, int num_threads, void (*add_client)(int id),
                          int (*handle_client)(int id, tcp_buffer *write_buf,
                                               char *msg, int len),
-                         void (*clear_client)(int id)) {
+                         void (*clear_client)(int id))
+{
     tcp_server_ *server = malloc(sizeof(tcp_server_));
     server->port = port;
     server->add_client = add_client;
     server->handle_client = handle_client;
     server->clear_client = clear_client;
 
-    if (!handle_client) {
+    if (!handle_client)
+    {
         fprintf(stderr, "handle_client() cannot be NULL\n");
         exit(EXIT_FAILURE);
     }
@@ -153,7 +177,8 @@ tcp_server_ *server_init(int port, int num_threads, void (*add_client)(int id),
     // create listen socket
     int listenfd;
     listenfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (listenfd < 0) {
+    if (listenfd < 0)
+    {
         perror("socket()");
         exit(EXIT_FAILURE);
     }
@@ -161,7 +186,8 @@ tcp_server_ *server_init(int port, int num_threads, void (*add_client)(int id),
 
     // set SO_REUSEADDR, avoid bind error
     int val = 1;
-    if (setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val)) < 0) {
+    if (setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val)) < 0)
+    {
         perror("setsockopt()");
         exit(EXIT_FAILURE);
     }
@@ -172,13 +198,15 @@ tcp_server_ *server_init(int port, int num_threads, void (*add_client)(int id),
     serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     serv_addr.sin_port = htons(server->port);
 
-    if (bind(listenfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) != 0) {
+    if (bind(listenfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) != 0)
+    {
         perror("bind()");
         exit(EXIT_FAILURE);
     }
 
     // start listening
-    if (listen(listenfd, 10) < 0) {
+    if (listen(listenfd, 10) < 0)
+    {
         perror("listen()");
         exit(EXIT_FAILURE);
     }
@@ -191,15 +219,19 @@ tcp_server_ *server_init(int port, int num_threads, void (*add_client)(int id),
 }
 
 /* Start the server loop, never returns */
-void server_loop(tcp_server_ *server) {
-    while (1) {
+void server_loop(tcp_server_ *server)
+{
+    while (1)
+    {
         server->pool.ready_set = server->pool.read_set;
         server->pool.nready = select(server->pool.maxfd + 1,
                                      &server->pool.ready_set, NULL, NULL, NULL);
-        if (FD_ISSET(server->listenfd, &server->pool.ready_set)) {
+        if (FD_ISSET(server->listenfd, &server->pool.ready_set))
+        {
             // handle new client
             int connfd = accept(server->listenfd, NULL, NULL);
-            if (connfd < 0) {
+            if (connfd < 0)
+            {
                 perror("accept()");
                 exit(EXIT_FAILURE);
             }
@@ -208,10 +240,13 @@ void server_loop(tcp_server_ *server) {
 
         struct tcp_server_pool *p = &server->pool;
 
-        for (int i = 0; (i <= p->maxi) && (p->nready > 0); i++) {
+        for (int i = 0; (i <= p->maxi) && (p->nready > 0); i++)
+        {
             int connfd = p->connfd[i];
-            if ((connfd > 0) && (FD_ISSET(connfd, &p->ready_set))) {
-                if (pthread_mutex_trylock(&p->mutex[i]) == 0) {
+            if ((connfd > 0) && (FD_ISSET(connfd, &p->ready_set)))
+            {
+                if (pthread_mutex_trylock(&p->mutex[i]) == 0)
+                {
                     p->nready--;
                     handle_read_args *arg = malloc(sizeof(handle_read_args));
                     arg->server = server;
@@ -225,10 +260,12 @@ void server_loop(tcp_server_ *server) {
 }
 
 /* Initialize a client */
-tcp_client_ *client_init(const char *hostname, int port) {
+tcp_client_ *client_init(const char *hostname, int port)
+{
     int sockfd;
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) {
+    if (sockfd < 0)
+    {
         perror("socket()");
         exit(EXIT_FAILURE);
     }
@@ -236,13 +273,15 @@ tcp_client_ *client_init(const char *hostname, int port) {
     struct hostent *host;
     serv_addr.sin_family = AF_INET;
     host = gethostbyname(hostname);
-    if (host == NULL) {
+    if (host == NULL)
+    {
         perror("gethostbyname()");
         exit(EXIT_FAILURE);
     }
     memcpy(&serv_addr.sin_addr.s_addr, host->h_addr, host->h_length);
     serv_addr.sin_port = htons(port);
-    if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+    if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
+    {
         perror("connect()");
         exit(EXIT_FAILURE);
     }
@@ -255,36 +294,44 @@ tcp_client_ *client_init(const char *hostname, int port) {
 }
 
 /* Send a message to the server */
-void client_send(tcp_client_ *client, const char *msg, int len) {
+void client_send(tcp_client_ *client, const char *msg, int len)
+{
     send_to_buffer(client->write_buf, msg, len);
     buffer_output(client->write_buf, client->sockfd);
 }
 
 /* Receive a message from the server */
-int client_recv(tcp_client_ *client, char *buf, int max_len) {
+int client_recv(tcp_client_ *client, char *buf, int max_len)
+{
     tcp_buffer *read_buf = client->read_buf;
-    while (1) {
+    while (1)
+    {
         buffer_input(read_buf, client->sockfd);
         int readable = read_buf->write_index - read_buf->read_index;
         char *s = &read_buf->buf[read_buf->read_index];
-        if (readable < 4) continue;
+        if (readable < 4)
+            continue;
         // network long to host long
         int len = ntohl(*(int *)s);
-        if (readable >= len + 4) {
-            if (len > max_len) {
+        if (readable >= len + 4)
+        {
+            if (len > max_len)
+            {
                 fprintf(stderr, "client_recv: buffer too small\n");
                 exit(EXIT_FAILURE);
             }
             memcpy(buf, s + 4, len);
             recycle_read(read_buf, len + 4);
             return len;
-        } else
+        }
+        else
             continue;
     }
 }
 
 /* Destroy the client */
-void client_destroy(tcp_client_ *client) {
+void client_destroy(tcp_client_ *client)
+{
     close(client->sockfd);
     free(client->read_buf);
     free(client->write_buf);
