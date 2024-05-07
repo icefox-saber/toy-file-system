@@ -13,7 +13,6 @@ int ncyl, nsec, ttd;
 int currentcyl=0;
 char *diskfname;//diskfname
 int fd;//全局文件描述符
-
 // return a negative value to exit
 // information
 // args和len没用，为了模板化加的参数
@@ -30,11 +29,17 @@ int cmd_i(tcp_buffer *write_buf, char *args, int len)
 // read cylinder sector args len
 int cmd_r(tcp_buffer *write_buf, char *args, int len)
 {
+     static char *msg0="error command";
     static char buf[BLOCKSIZE];
     char *c = strtok(args, " ");
     char *s = strtok(NULL, " ");
-    int cylinder = strtol(c, NULL, 10);
-    int sector = strtol(s, NULL, 10);
+    if(!c||!s)
+    {
+        send_to_buffer(write_buf, msg0, strlen(msg0));
+        return 0; // 或者返回错误代码
+    }
+    int cylinder = atoi(c);//这里可能会异常即c为空
+    int sector = atoi(s);
     usleep(ttd*abs(currentcyl-cylinder));
     currentcyl=cylinder;
     // 计算文件偏移量
@@ -65,14 +70,20 @@ int cmd_r(tcp_buffer *write_buf, char *args, int len)
 //len:strlen(args)
 int cmd_w(tcp_buffer *write_buf, char *args, int len)
 {
-    static char buf[BLOCKSIZE];
+    static char *msg0="error command";
+    //static char buf[BLOCKSIZE];
     char *c = strtok(args, " ");
     char *s = strtok(NULL, " ");
-    char *l = strtok(NULL, " ");
     
-    int cylinder = strtol(c, NULL, 10);
-    int sector = strtol(s, NULL, 10);
-    int datalen = strtol(l, NULL, 10);
+    char *l = strtok(NULL, " ");
+    if(!c||!s||!l)
+    {
+        send_to_buffer(write_buf, msg0, strlen(msg0));
+        return 0; // 或者返回错误代码
+    }
+    int cylinder = atoi(c);
+    int sector = atoi(s);
+    int datalen = atoi(l);
     char *d = strtok(NULL, "\0");
     // 计算文件偏移量
     usleep(ttd*abs(currentcyl-cylinder));
@@ -130,6 +141,7 @@ void add_client(int id)
 
 int handle_client(int id, tcp_buffer *write_buf, char *msg, int len)
 {
+    
     char *p = strtok(msg, " \r\n");
     int ret = 1;
     for (int i = 0; i < NCMD; i++)
@@ -147,6 +159,8 @@ int handle_client(int id, tcp_buffer *write_buf, char *msg, int len)
     {
         return -1;
     }
+
+    return 0;
 }
 
 void clear_client(int id)
@@ -158,7 +172,7 @@ void clear_client(int id)
 
 int main(int argc, char *argv[])
 {
-    if (argc < 5)
+    if (argc < 6)
     {
         fprintf(stderr,
                 "Usage: %s <disk file name> <cylinders> <sector per cylinder> "

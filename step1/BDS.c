@@ -71,7 +71,7 @@ int cmd_r(tcp_buffer *write_buf, char *args, int len)
 int cmd_w(tcp_buffer *write_buf, char *args, int len)
 {
     static char *msg0="error command";
-    static char buf[BLOCKSIZE];
+    //static char buf[BLOCKSIZE];
     char *c = strtok(args, " ");
     char *s = strtok(NULL, " ");
     
@@ -159,6 +159,8 @@ int handle_client(int id, tcp_buffer *write_buf, char *msg, int len)
     {
         return -1;
     }
+
+    return 0;
 }
 
 void clear_client(int id)
