@@ -10,6 +10,7 @@
 //  Block size in bytes
 #define BLOCKSIZE 256
 int ncyl, nsec, ttd;
+int currentcyl=0;
 char *diskfname;//diskfname
 int fd;//全局文件描述符
 // return a negative value to exit
@@ -33,7 +34,8 @@ int cmd_r(tcp_buffer *write_buf, char *args, int len)
     char *s = strtok(NULL, " ");
     int cylinder = strtol(c, NULL, 10);
     int sector = strtol(s, NULL, 10);
-
+    usleep(ttd*abs(currentcyl-cylinder));
+    currentcyl=cylinder;
     // 计算文件偏移量
     off_t offset = (cylinder * nsec + sector) * BLOCKSIZE;
 
@@ -72,10 +74,14 @@ int cmd_w(tcp_buffer *write_buf, char *args, int len)
     int datalen = strtol(l, NULL, 10);
     char *d = strtok(NULL, "\0");
     // 计算文件偏移量
+    usleep(ttd*abs(currentcyl-cylinder));
+    currentcyl=cylinder;
     off_t offset = (cylinder * nsec + sector) * BLOCKSIZE;
     static char *msg1 = "Error calling lseek() to set file offset";
     static char *msg2 = "Error writing to file in cmd_w";
     // 定位文件偏移量
+    off_t lastoffset = 0;
+    
     if (lseek(fd, offset, SEEK_SET) == -1)
     {
         send_to_buffer(write_buf, msg1, strlen(msg1));
