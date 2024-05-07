@@ -13,12 +13,17 @@ set(HEADERS ${INCLUDE_DIR}/tcp_buffer.h ${INCLUDE_DIR}/tcp_utils.h ${INCLUDE_DIR
 
 # 添加可执行文件 BDS
 # 添加可执行文件 BDC
-add_executable(BDC_step2 ${CMAKE_SOURCE_DIR}/step2/BDC.c ${SOURCES})
+add_executable(FC ${CMAKE_SOURCE_DIR}/step2/FC.c ${SOURCES})
 
 # 添加头文件的路径到 BDC 可执行文件的属性中
-target_include_directories(BDC PRIVATE ${INCLUDE_DIR})
+target_include_directories(FC PRIVATE ${INCLUDE_DIR})
 
-add_executable(BDS_step1 ${CMAKE_SOURCE_DIR}/step2/BDS.c ${SOURCES})
+add_executable(FS ${CMAKE_SOURCE_DIR}/step2/FS.c ${SOURCES})
+
+# 添加头文件的路径到 BDC 可执行文件的属性中
+target_include_directories(FS PRIVATE ${INCLUDE_DIR})
+
+add_executable(BDS_step2 ${CMAKE_SOURCE_DIR}/step2/BDS.c ${SOURCES})
 
 # 添加头文件的路径到 BDS 可执行文件的属性中
 target_include_directories(BDS PRIVATE ${INCLUDE_DIR})

@@ -129,6 +129,7 @@ void add_client(int id)
 
 int handle_client(int id, tcp_buffer *write_buf, char *msg, int len)
 {
+    
     char *p = strtok(msg, " \r\n");
     int ret = 1;
     for (int i = 0; i < NCMD; i++)
@@ -157,7 +158,7 @@ void clear_client(int id)
 
 int main(int argc, char *argv[])
 {
-    if (argc < 5)
+    if (argc < 6)
     {
         fprintf(stderr,
                 "Usage: %s <disk file name> <cylinders> <sector per cylinder> "

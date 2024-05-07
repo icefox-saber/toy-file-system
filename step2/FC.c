@@ -6,7 +6,7 @@
 #include <unistd.h>
 
 #include "tcp_utils.h"
-
+//./FC localhost 12356
 int main(int argc, char *argv[]) {
     if (argc < 2) {
         fprintf(stderr, "Usage: %s <Port>", argv[0]);
