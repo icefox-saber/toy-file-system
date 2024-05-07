@@ -10,7 +10,6 @@
 //  Block size in bytes
 #define BLOCKSIZE 256
 int ncyl, nsec, ttd;
-char *diskfname;//diskfname
 int fd;//全局文件描述符
 // return a negative value to exit
 // information
@@ -57,9 +56,7 @@ int cmd_r(tcp_buffer *write_buf, char *args, int len)
     send_to_buffer(write_buf, buf, strlen(buf));
     return 0;
 }
-//W 
-//args:cylinder sector len data
-//len:strlen(args)
+
 int cmd_w(tcp_buffer *write_buf, char *args, int len)
 {
     static char buf[BLOCKSIZE];
@@ -161,7 +158,7 @@ int main(int argc, char *argv[])
     }
     //./BDS name 3 8 10 8086
     // args
-    diskfname = argv[1];
+    char *diskfname = argv[1];
     ncyl = atoi(argv[2]);
     nsec = atoi(argv[3]);
     ttd = atoi(argv[4]); // ms

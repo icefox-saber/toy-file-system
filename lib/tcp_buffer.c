@@ -13,7 +13,7 @@
 #include <unistd.h>
 
 tcp_buffer *init_buffer() {
-    tcp_buffer *buf = malloc(sizeof(tcp_buffer));
+    tcp_buffer *buf = malloc(sizeof(tcp_buffer));//这里类似于C++的new,动态分配内存，创建一个实例
     buf->read_index = 0;
     buf->write_index = 0;
     return buf;

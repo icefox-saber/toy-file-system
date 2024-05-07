@@ -45,7 +45,7 @@ void server_loop(tcp_server server);
  *
  * @param  hostname  hostname of the server
  * @param  port      port number of the server
- *
+ * 
  * @return tcp_client  created client
  */
 tcp_client client_init(const char *hostname, int port);
