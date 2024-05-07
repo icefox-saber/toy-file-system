@@ -11,5 +11,5 @@ step2/BDC_step2
 
 step2/FS
 step2/FC
-step1/name2.txt
-name2.txt
+
+*.txt
