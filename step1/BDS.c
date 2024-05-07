@@ -29,11 +29,17 @@ int cmd_i(tcp_buffer *write_buf, char *args, int len)
 // read cylinder sector args len
 int cmd_r(tcp_buffer *write_buf, char *args, int len)
 {
+     static char *msg0="error command";
     static char buf[BLOCKSIZE];
     char *c = strtok(args, " ");
     char *s = strtok(NULL, " ");
-    int cylinder = strtol(c, NULL, 10);
-    int sector = strtol(s, NULL, 10);
+    if(!c||!s)
+    {
+        send_to_buffer(write_buf, msg0, strlen(msg0));
+        return 0; // 或者返回错误代码
+    }
+    int cylinder = atoi(c);//这里可能会异常即c为空
+    int sector = atoi(s);
     usleep(ttd*abs(currentcyl-cylinder));
     currentcyl=cylinder;
     // 计算文件偏移量
@@ -64,14 +70,20 @@ int cmd_r(tcp_buffer *write_buf, char *args, int len)
 //len:strlen(args)
 int cmd_w(tcp_buffer *write_buf, char *args, int len)
 {
+    static char *msg0="error command";
     static char buf[BLOCKSIZE];
     char *c = strtok(args, " ");
     char *s = strtok(NULL, " ");
-    char *l = strtok(NULL, " ");
     
-    int cylinder = strtol(c, NULL, 10);
-    int sector = strtol(s, NULL, 10);
-    int datalen = strtol(l, NULL, 10);
+    char *l = strtok(NULL, " ");
+    if(!c||!s||!l)
+    {
+        send_to_buffer(write_buf, msg0, strlen(msg0));
+        return 0; // 或者返回错误代码
+    }
+    int cylinder = atoi(c);
+    int sector = atoi(s);
+    int datalen = atoi(l);
     char *d = strtok(NULL, "\0");
     // 计算文件偏移量
     usleep(ttd*abs(currentcyl-cylinder));
