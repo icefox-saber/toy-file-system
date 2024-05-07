@@ -63,9 +63,10 @@ int cmd_r(tcp_buffer *write_buf, char *args, int len)
         send_to_buffer(write_buf, "nothing", strlen(msg2));
         return 0; // 或者返回错误代码
     }
-
+	char *megsyes="yes";
+	char *res=strcat(buf,megsyes);
     // 发送数据到缓冲区
-    send_to_buffer(write_buf, buf, num);
+    send_to_buffer(write_buf, res, num);
     return 0;
 }
 
