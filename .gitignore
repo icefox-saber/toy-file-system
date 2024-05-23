@@ -13,3 +13,8 @@ step2/FS
 step2/FC
 
 *.txt
+step2/disk
+step2/disk.log
+step2/fs.log
+step2/test
+step2/src/fs.log
