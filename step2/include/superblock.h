@@ -28,7 +28,7 @@ typedef struct super_block {
     uint32_t s_root;               // 根目录的inode编号
     uint32_t block_map[MAX_BLOCK_MAP];  // 块位图，记录块是否空闲
     uint32_t inode_map[MAX_INODE_MAP];  // inode位图，记录inode是否空闲
-} super_block;
+} super_block;//2+165*4=662bytes=2.6block
 
 
 /**

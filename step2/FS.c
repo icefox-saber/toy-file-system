@@ -621,8 +621,8 @@ void add_client(int id)
     {
         _printf("Don't find formatted file system. Please first format.\n");
     }
-    //send(id, response, strlen(response)+1, 0);
-    //int ret=send(id, cur_path_string, strlen(cur_path_string) + 1, 0);//
+    //char *msg="/";
+    //int ret=send(id, msg, strlen(msg)+1, 0);
     //if(ret==-1)
     //{
         //printf("error in add client");
@@ -652,6 +652,7 @@ int handle_client(int id, tcp_buffer *write_buf, char *msg, int len)
             ret = commands_list[i].handle(params);
             // if (!strlen(response)) _printf("Done.\n");
             handled = true;
+            _printf(cur_path_string);
             send_to_buffer(write_buf,response,strlen(response)+1);
             return 0;
         }

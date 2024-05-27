@@ -18,8 +18,8 @@ int init_spb()
     memset(spb.inode_map, 0, sizeof(spb.inode_map)); // 初始化inode位图
     memset(spb.block_map, 0, sizeof(spb.block_map)); // 初始化块位图
     for (int i = 0; i <= 3; i++)
-        spb.block_map[i] = ~0;       // 标记预留块为已使用
-    spb.block_map[4] = (0xe0000000); // 标记部分预留块为已使用
+        spb.block_map[i] = ~0;       // 标记预留块为已使用32+32+32+32=128blocks=1024 i-node
+    spb.block_map[4] = (0xe0000000); // 标记部分预留块为已使用3blocks，总共131blocks
 
     char buf[TCP_BUF_SIZE];
     memset(buf, 0, sizeof(buf));    // 清空缓冲区
@@ -65,13 +65,13 @@ int alloc_block()
         uint32_t block = spb.block_map[i];
         for (int j = 0; j < 32; j++)
         {
-            if ((block >> (31 - j)) & 1)
-                continue; // 跳过已使用的块
+            if ((block >> (31 - j)) & 1) // 判断左数j+1位
+                continue;                // 跳过已使用的块
             else
             {
                 spb.s_free_blocks_count--;
                 spb.s_blocks_count++;
-                spb.block_map[i] |= 1 << (31 - j); // 标记块为已使用
+                spb.block_map[i] |= 1 << (31 - j); // 标记块为已使用,将左数第j+1位赋值位1
 
                 char buf[TCP_BUF_SIZE]; // 将修改后的super_block写入磁盘
                 memset(buf, 0, sizeof(buf));
@@ -95,15 +95,15 @@ int free_block(uint16_t index)
         return 1; // 块已空闲
     else
     {
-        spb.block_map[i] ^= 1 << (31 - j);
-        spb.s_free_blocks_count++;
-        spb.s_blocks_count--;
 
         char buf[BLOCK_SIZE]; // 清空对应块
         memset(buf, 0, sizeof(buf));
         if (write_block(index, buf, 1) < 0)
             return -1;
 
+        spb.block_map[i] ^= 1 << (31 - j); // 异或
+        spb.s_free_blocks_count++;
+        spb.s_blocks_count--;
         char buf_2[3 * BLOCK_SIZE]; // 将修改后的super_block写入磁盘
         memset(buf_2, 0, sizeof(buf_2));
         memcpy(buf_2, &spb, sizeof(spb));
