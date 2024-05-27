@@ -1,17 +1,21 @@
 SRC = $(wildcard *.c) $(wildcard ../lib/*.c)
-LIBS = ../lib/tcp_buffer.c ../lib/tcp_utils.c ../lib/thpool.c
+LIBS = ../lib/tcp_buffer.o ../lib/tcp_utils.o ../lib/thpool.o
 CC = gcc
-CFLAGS += -I../include -Wall -Wextra -fsanitize=address -lpthread -g
+CFLAGS += -I../include -Wall -Wextra -lpthread -g # Removed -fsanitize=address
 
-all: FS FC
+all: BDS FC FS
 
-FS: FS.o $(LIBS)
+BDS: BDS.o $(LIBS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
 
 FC: FC.o $(LIBS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
 
+FS: FS.o $(LIBS)
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
+
 include ${SRC:.c=.d}
+
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -22,6 +26,6 @@ include ${SRC:.c=.d}
 	rm -f $@.$$$$
 
 clean:
-	rm -f *.o *.d FS FC
+	rm -f *.o *.d BDS FC FS
 
 .PHONY: all clean
