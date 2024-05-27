@@ -264,14 +264,22 @@ int ls_handle(char *params)
     }
     char buf[64 * MAX_NAME_SIZE];
     char buf2[64 * MAX_NAME_SIZE];
-    if (ls_dir_inode(&inode_table[current_dir], buf, buf2) == 0)
+    bool detailed = false;
+    if (params && strcmp(params, "-l") == 0)
+    {
+        detailed = true;
+    }
+    if (ls_dir_inode(&inode_table[current_dir], buf, buf2, detailed) == 0)
     {
         fprintf(log_fp, "[DEBUG] response of 'ls': %s", buf);
+        if(detailed)
+            buf2[strlen(buf2)-13]=0;//手动修正多一个空格
         responsecat("%s", buf2);
         printf("%s", buf2);
     }
     return 0;
 }
+
 
 /** @brief 读取文件内容
  * @param params 格式<f>，f为文件名*/
@@ -640,6 +648,7 @@ int handle_client(int id, tcp_buffer *write_buf, char *msg, int len)
     int ret;
     memset(raw_command, 0, sizeof(raw_command));
     memset(response, 0, sizeof(response));
+    memset(params, 0, sizeof(params));
     memcpy(raw_command, msg, sizeof(raw_command));
 
     bool handled = false;

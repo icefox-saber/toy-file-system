@@ -211,27 +211,31 @@ int add_to_dir_inode(inode *dir_node, char *name, uint8_t type)
     }
     return -1;
 }
-int rm_from_dir_inode(inode *dir_node, char *name) {
+int rm_from_dir_inode(inode *dir_node, char *name)
+{
     dir_item dir_items[DIR_ITEM_PER_BLOCK];
     char buf[BLOCK_SIZE];
-    
-    for (int i = 0; i < 8; i++) {
+
+    for (int i = 0; i < 8; i++)
+    {
         if (dir_node->i_direct[i] == 0)
             break;
-        
+
         read_block(dir_node->i_direct[i], buf);
         memcpy(dir_items, buf, sizeof(buf));
-        
-        for (int j = 0; j < DIR_ITEM_PER_BLOCK; j++) {
+
+        for (int j = 0; j < DIR_ITEM_PER_BLOCK; j++)
+        {
             if (!dir_items[j].valid)
                 continue;
-            
-            if (strcmp(dir_items[j].name, name) == 0) {
+
+            if (strcmp(dir_items[j].name, name) == 0)
+            {
                 dir_items[j].valid = 0;
                 memcpy(buf, dir_items, sizeof(buf));
                 write_block(dir_node->i_direct[i], buf, 1);
                 dir_node->i_link_count--;
-                
+
                 return 0;
             }
         }
@@ -239,27 +243,32 @@ int rm_from_dir_inode(inode *dir_node, char *name) {
     return -1;
 }
 
-int rmdir_from_dir_inode(inode *dir_node, char *name) {
+int rmdir_from_dir_inode(inode *dir_node, char *name)
+{
     dir_item dir_items[DIR_ITEM_PER_BLOCK];
     char buf[BLOCK_SIZE];
-    
-    for (int i = 0; i < 8; i++) {
+
+    for (int i = 0; i < 8; i++)
+    {
         if (dir_node->i_direct[i] == 0)
             break;
-        
+
         read_block(dir_node->i_direct[i], buf);
         memcpy(dir_items, buf, sizeof(buf));
-        
-        for (int j = 0; j < DIR_ITEM_PER_BLOCK; j++) {
+
+        for (int j = 0; j < DIR_ITEM_PER_BLOCK; j++)
+        {
             if (!dir_items[j].valid)
                 continue;
-            
-            if (strcmp(dir_items[j].name, name) == 0) {
+
+            if (strcmp(dir_items[j].name, name) == 0)
+            {
                 inode child;
                 read_inode(&child, dir_items[j].inode_id);
-                
+
                 // Recursively remove all items within the directory
-                for (int k = 0; k < 8; k++) {
+                for (int k = 0; k < 8; k++)
+                {
                     if (child.i_direct[k] == 0)
                         continue;
 
@@ -267,13 +276,17 @@ int rmdir_from_dir_inode(inode *dir_node, char *name) {
                     dir_item child_items[DIR_ITEM_PER_BLOCK];
                     memcpy(child_items, buf, sizeof(buf));
 
-                    for (int l = 0; l < DIR_ITEM_PER_BLOCK; l++) {
+                    for (int l = 0; l < DIR_ITEM_PER_BLOCK; l++)
+                    {
                         if (!child_items[l].valid)
                             continue;
 
-                        if (child_items[l].type == 0) {  // File
+                        if (child_items[l].type == 0)
+                        { // File
                             rm_from_dir_inode(&child, child_items[l].name);
-                        } else if (child_items[l].type == 1) {  // Directory
+                        }
+                        else if (child_items[l].type == 1)
+                        { // Directory
                             rmdir_from_dir_inode(&child, child_items[l].name);
                         }
                     }
@@ -285,7 +298,7 @@ int rmdir_from_dir_inode(inode *dir_node, char *name) {
                 memcpy(buf, dir_items, sizeof(buf));
                 write_block(dir_node->i_direct[i], buf, 1);
                 dir_node->i_link_count--;
-                
+
                 return 0;
             }
         }
@@ -325,17 +338,17 @@ int lexic_cmp(const void *a, const void *b)
     return strcmp(item1->name, item2->name);
 }
 
-int ls_dir_inode(inode *dir_node, char *ret, char *ret2)
+int ls_dir_inode(inode *dir_node, char *ret, char *ret2, bool detailed)
 {
     if (!dir_node->i_mode)
         return -1;
     char buf[TCP_BUF_SIZE];
     bool flag = false; // 文件夹是否为空，false代表空
 
-    char dir_name[64][MAX_NAME_SIZE];
-    char file_name[64][MAX_NAME_SIZE];
-    char dir[64 * MAX_NAME_SIZE];
-    char file[64 * MAX_NAME_SIZE];
+    char dir_name[64][MAX_NAME_SIZE*2];
+    char file_name[64][MAX_NAME_SIZE*2];
+    char dir[64 * MAX_NAME_SIZE*2];
+    char file[64 * MAX_NAME_SIZE*2];
     int num_dir = 0, num_file = 0;
 
     ret[0] = '\0';
@@ -359,27 +372,64 @@ int ls_dir_inode(inode *dir_node, char *ret, char *ret2)
             }
         }
     }
+
+    if (flag)
+    {
+        if (detailed)
+        {
+            char detailed_info[256];
+            ret[0] = '\0';
+            for (int i = 0; i < num_file; i++)
+            {
+                inode file_inode;
+                int inode_index = search_in_dir_inode(dir_node, file_name[i], 0);
+                if (inode_index >= 0)
+                {
+                    read_inode(&file_inode, inode_index);
+                    sprintf(detailed_info, "%d %d %s\n", file_inode.i_size, file_inode.i_timestamp, "file");
+                    strcat(file_name[i], detailed_info);//这里确认file_name不会用来搜索
+                }
+            }
+            for (int i = 0; i < num_dir; i++)
+            {
+                inode dir_inode;
+                int inode_index = search_in_dir_inode(dir_node, dir_name[i], 1);
+                if (inode_index >= 0)
+                {
+                    read_inode(&dir_inode, inode_index);
+                    sprintf(detailed_info, "%d %d %s\n", dir_inode.i_size, dir_inode.i_timestamp, "dir");
+                    strcat(dir_name[i], detailed_info);
+                }
+            }
+        }
+    }
+
     // 字典序排序文件与文件夹名
     qsort(dir_name, num_dir, sizeof(dir_name[0]), lexic_cmp);
     qsort(file_name, num_file, sizeof(file_name[0]), lexic_cmp);
     dir[0] = '\0';
     for (int i = 0; i < num_dir; i++)
     {
-        if (i)
+        if (i&&!detailed)
             strcat(dir, "  ");
         strcat(dir, dir_name[i]);
     }
     file[0] = '\0';
     for (int i = 0; i < num_file; i++)
     {
-        if (i)
+        if (i&&!detailed)
             strcat(file, "  ");
         strcat(file, file_name[i]);
     }
-    if (flag)
+    if (flag&&!detailed)
     {
         sprintf(ret, "%s  &  %s\n", file, dir);
         sprintf(ret2, "%s  \033[1;34m%s\033[0m\n", file, dir);
+    }
+    else if(flag&&detailed)
+    {
+        sprintf(ret, "%s  &  %s", file, dir);
+        sprintf(ret2, "%s  \033[1;34m%s\033[0m", file, dir);
     }
     else
     {
@@ -455,9 +505,9 @@ int read_file_inode(inode *file_node, char *ret)
         }
     else
     {
-    for (int i = 0; i < 8; i++)
-    {
-        if (file_node->i_direct[i] == 0)
+        for (int i = 0; i < 8; i++)
+        {
+            if (file_node->i_direct[i] == 0)
                 return -1;
             memset(buf, 0, BLOCK_SIZE);
             if (read_block(file_node->i_direct[i], buf) < 0)
@@ -501,7 +551,7 @@ int write_file_inode(inode *file_node, char *src)
     {
         // 写入
         for (int i = 0; i < (need_link_count >= 8 ? 8 : need_link_count); i++)
-    {
+        {
             memcpy(buf, tmp + i * BLOCK_SIZE, BLOCK_SIZE);
             write_block(file_node->i_direct[i], buf, 1);
         }
@@ -538,9 +588,9 @@ int write_file_inode(inode *file_node, char *src)
                 write_block(file_node->i_single_indirect, buf, 1);
             }
         }
-        }
-        else
-        {
+    }
+    else
+    {
         // 申请不足的新结点
         if (need_link_count - ori_link_count > spb.s_free_blocks_count)
             return -1;
@@ -591,7 +641,7 @@ int write_file_inode(inode *file_node, char *src)
         {
             memcpy(buf, tmp + (i + 8) * BLOCK_SIZE, BLOCK_SIZE);
             write_block(indirect_blocks[i], buf, 1);
-    }
+        }
     }
     file_node->i_link_count = need_link_count; // 更新连接数
     file_node->i_size = strlen(src);           // size储存文件实际长度

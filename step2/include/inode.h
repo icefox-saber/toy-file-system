@@ -1,7 +1,7 @@
 #pragma once  
 #include "superblock.h"
 #include <stdint.h>
-
+#include <stdbool.h>
 #define INODE_PER_BLOCK 8
 #define INODE_TABLE_START_BLOCK 3 
 #define MAX_LINKS_PER_NODE 136          //8 for direct, 128 for single-indirect
@@ -104,9 +104,11 @@ int lexic_cmp(const void *a, const void *b);
  * @param dir_node 目标路径dir_inode指针
  * @param ret 结果字符串(写入log 不带颜色)
  * @param ret2 结果字符串(显示 带颜色)
+ * @param detailed true表示ls -l命令,false表示ls
+ * 
  * @return 返回0代表成功，-1代表失败或空
 */
-int ls_dir_inode(inode* dir_node, char *ret, char *ret2);
+int ls_dir_inode(inode *dir_node, char *ret, char *ret2, bool detailed);
 
 /**
  * @brief 按名称从文件夹寻找子文件夹或子文件
