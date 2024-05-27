@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
         int n = client_recv(client, buf, sizeof(buf));
         buf[n] = 0;
         printf("%s\n", buf);
-        if (strcmp(buf, "Bye!") == 0)
+        if (strcmp(buf, "Goodbye!") == 0)
             break;
     }
     client_destroy(client);

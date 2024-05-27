@@ -19,6 +19,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include "thpool.h"
 
@@ -246,6 +247,13 @@ void server_loop(tcp_server_ *server)
                 perror("accept()");
                 exit(EXIT_FAILURE);
             }
+            int flag = fcntl(connfd, F_GETFL, 0);
+            fcntl(connfd, F_SETFL, flag | O_NONBLOCK);
+            flag = fcntl(connfd, F_GETFL, 0);
+            if (!(flag & O_NONBLOCK))
+            {
+                fprintf(stderr, "set nonblock error\n");
+            }
             add_conn(connfd, &server->pool, server->add_client);
         }
 
@@ -294,7 +302,7 @@ tcp_client_ *client_init(const char *hostname, int port)
         perror("gethostbyname()");
         exit(EXIT_FAILURE);
     }
-    memcpy(&serv_addr.sin_addr.s_addr, host->h_addr_list[0], host->h_length);
+    memcpy(&serv_addr.sin_addr.s_addr, host->h_addr, host->h_length);
     serv_addr.sin_port = htons(port);
     if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
     {
@@ -323,7 +331,12 @@ int client_recv(tcp_client_ *client, char *buf, int max_len)
     // read all data from the socket
     while (1)
     {
-        buffer_input(read_buf, client->sockfd);
+        int count = buffer_input(read_buf, client->sockfd);
+        if (count <= 0)
+        {
+            printf("Connection closed\n");
+            return 0;
+        }
         int readable = read_buf->write_index - read_buf->read_index;
         char *s = &read_buf->buf[read_buf->read_index];
         // the first 4 bytes is the length of the message

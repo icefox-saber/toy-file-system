@@ -28,7 +28,7 @@ char cur_path_string[MAX_PATH_STR_LENGTH] = "$"; // 当前目录字符串
 bool formatted = false;                          // 是否格式化
 
 /*增加到response*/
-void _printf(const char *format, ...)
+void responsecat(const char *format, ...)
 {
     va_list args;
     va_start(args, format);
@@ -54,13 +54,13 @@ int check_name(char *text)
         }
         else
         {
-            _printf("Illegal name! (Only accept numbers ,letters ,_ and . )\n");
+            responsecat("Illegal name! (Only accept numbers ,letters ,_ and . )\n");
             return 1;
         }
     }
     if (i > MAX_NAME_SIZE)
     {
-        _printf("Illegal name! (Must be shorter than 28)\n");
+        responsecat("Illegal name! (Must be shorter than 28)\n");
         return 1;
     }
     return 0;
@@ -71,12 +71,12 @@ int format_handle(char *params)
 {
     if (init_spb() < 0)
     { // 初始化super block
-        _printf("Init superblock failed. Initializing this file system requires at least 132 blocks of connected disks.\n");
+        responsecat("Init superblock failed. Initializing this file system requires at least 132 blocks of connected disks.\n");
         return 0;
     }
     if (init_root_inode() < 0)
     { // 初始化root inode
-        _printf("Init root inode failed.\n");
+        responsecat("Init root inode failed.\n");
         return 0;
     };
     current_dir = 0; // 初始化当前目录为root
@@ -85,7 +85,7 @@ int format_handle(char *params)
     { // 初始化inode table
         if (init_inode(&inode_table[i], i, 0, 0, 0, 65535) < 0)
         {
-            _printf("Init inode failed.\n");
+            responsecat("Init inode failed.\n");
             return 0;
         }
     }
@@ -93,7 +93,7 @@ int format_handle(char *params)
     { // 写回inode table到diskfile
         if (write_inode(&inode_table[i], i) < 0)
         {
-            _printf("Write Inode failed.\n");
+            responsecat("Write Inode failed.\n");
             return 0;
         }
     }
@@ -108,7 +108,7 @@ int mk_handle(char *params)
 {
     if (!formatted)
     {
-        _printf("Please first format.\n");
+        responsecat("Please first format.\n");
         return 0;
     }
     if (check_name(params))
@@ -119,7 +119,7 @@ int mk_handle(char *params)
     if (search_in_dir_inode(&inode_table[current_dir], params, 0) >= 0)
     { // 重名
         fprintf(log_fp, "[ERROR] 'mk' command error: A file with the same name already exists!\n");
-        _printf("A file with the same name already exists!\n");
+        responsecat("A file with the same name already exists!\n");
         return 0;
     }
     if (add_to_dir_inode(&inode_table[current_dir], params, 0) < 0)
@@ -135,7 +135,7 @@ int mkdir_handle(char *params)
 {
     if (!formatted)
     {
-        _printf("Please first format.\n");
+        responsecat("Please first format.\n");
         return 0;
     }
     if (check_name(params))
@@ -146,7 +146,7 @@ int mkdir_handle(char *params)
     if (search_in_dir_inode(&inode_table[current_dir], params, 1) >= 0)
     { // 重名
         fprintf(log_fp, "[ERROR] 'mkdir' command error: A sub-dir with the same name already exists!\n");
-        _printf("A sub-dir with the same name already exists!\n");
+        responsecat("A sub-dir with the same name already exists!\n");
         return 0;
     }
     if (add_to_dir_inode(&inode_table[current_dir], params, 1) < 0)
@@ -162,7 +162,7 @@ int rm_handle(char *params)
 {
     if (!formatted)
     {
-        _printf("Please first format.\n");
+        responsecat("Please first format.\n");
         return 0;
     }
     if (check_name(params))
@@ -183,7 +183,7 @@ int cd_handle(char *params)
 {
     if (!formatted)
     {
-        _printf("Please first format.\n");
+        responsecat("Please first format.\n");
         return 0;
     }
 
@@ -215,7 +215,7 @@ int cd_handle(char *params)
             int result = search_in_dir_inode(&inode_table[current_dir], path, 1);
             if (result == -1)
             {
-                _printf("Directory not found.\n");
+                responsecat("Directory not found.\n");
                 current_dir = ori_dir; // 找不到对应文件夹，回退
                 strcpy(cur_path_string, ori_path_string);
                 return 0;
@@ -236,7 +236,7 @@ int rmdir_handle(char *params)
 {
     if (!formatted)
     {
-        _printf("Please first format.\n");
+        responsecat("Please first format.\n");
         return 0;
     }
     if (check_name(params))
@@ -247,7 +247,7 @@ int rmdir_handle(char *params)
     if (rmdir_from_dir_inode(&inode_table[current_dir], params) < 0)
     {
         fprintf(log_fp, "[ERROR] 'rmdir' command error\n");
-        _printf("Failed: the possible reason is the dir is not empty!\n");
+        responsecat("Failed: the possible reason is the dir is not empty!\n");
     }
     else
         fprintf(log_fp, "[INFO] 'rmdir' executed sucessfully.\n");
@@ -259,7 +259,7 @@ int ls_handle(char *params)
 {
     if (!formatted)
     {
-        _printf("Please first format.\n");
+        responsecat("Please first format.\n");
         return 0;
     }
     char buf[64 * MAX_NAME_SIZE];
@@ -267,7 +267,7 @@ int ls_handle(char *params)
     if (ls_dir_inode(&inode_table[current_dir], buf, buf2) == 0)
     {
         fprintf(log_fp, "[DEBUG] response of 'ls': %s", buf);
-        _printf("%s", buf2);
+        responsecat("%s", buf2);
         printf("%s", buf2);
     }
     return 0;
@@ -279,7 +279,7 @@ int cat_handle(char *params)
 {
     if (!formatted)
     {
-        _printf("Please first format.\n");
+        responsecat("Please first format.\n");
         return 0;
     }
     // char buf[MAX_LINKS_PER_NODE * BLOCK_SIZE];
@@ -294,14 +294,14 @@ int cat_handle(char *params)
     if ((ret_id = search_in_dir_inode(&inode_table[current_dir], params, 0)) < 0)
     { // 文件不存在
         fprintf(log_fp, "[ERROR] 'cat' command error: File does not exist!\n");
-        _printf("File does not exist!\n");
+        responsecat("File does not exist!\n");
         return 0;
     }
     if (read_file_inode(&inode_table[ret_id], buf) == 0)
     {
         fprintf(log_fp, "[DEBUG] cat response:%s\n", buf);
-        _printf(buf);
-        _printf("\n");
+        responsecat(buf);
+        responsecat("\n");
     }
     else
         fprintf(log_fp, "[ERROR] 'cat' command error\n");
@@ -314,7 +314,7 @@ int w_handle(char *params)
 {
     if (!formatted)
     {
-        _printf("Please first format.\n");
+        responsecat("Please first format.\n");
         return 0;
     }
     char buf[MAX_LINKS_PER_NODE * BLOCK_SIZE];
@@ -331,12 +331,12 @@ int w_handle(char *params)
     if ((ret_id = search_in_dir_inode(&inode_table[current_dir], file_name, 0)) < 0)
     { // 文件不存在
         fprintf(log_fp, "[ERROR] 'w' command error: File does not exist!\n");
-        _printf("File does not exist!\n");
+        responsecat("File does not exist!\n");
         return 0;
     }
     if (len != strlen(buf))
     {
-        _printf("\033[1;33mWarning: The string length parameter does not match the actual length!\033[0m\n");
+        responsecat("\033[1;33mWarning: The string length parameter does not match the actual length!\033[0m\n");
         len = strlen(buf);
     }
     if (write_file_inode(&inode_table[ret_id], buf) == 0)
@@ -344,7 +344,7 @@ int w_handle(char *params)
     else
     {
         fprintf(log_fp, "[ERROR] 'w' command error: Disk space may be insufficient.\n");
-        _printf("Failed. Disk space may be insufficient\n");
+        responsecat("Failed. Disk space may be insufficient\n");
     }
     return 0;
 }
@@ -355,7 +355,7 @@ int i_handle(char *params)
 {
     if (!formatted)
     {
-        _printf("Please first format.\n");
+        responsecat("Please first format.\n");
         return 0;
     }
     char buf[MAX_LINKS_PER_NODE * BLOCK_SIZE];
@@ -372,12 +372,12 @@ int i_handle(char *params)
     if ((ret_id = search_in_dir_inode(&inode_table[current_dir], file_name, 0)) < 0)
     { // 文件不存在
         fprintf(log_fp, "[ERROR] 'i' command error: File does not exist!\n");
-        _printf("File does not exist!\n");
+        responsecat("File does not exist!\n");
         return 0;
     }
     if (len != strlen(src))
     {
-        _printf("\033[1;33mWarning: The string length parameter does not match the actual length!\033[0m\n");
+        responsecat("\033[1;33mWarning: The string length parameter does not match the actual length!\033[0m\n");
         len = strlen(src);
         fprintf(log_fp, "[WARNING] 'i' command warning: The string length parameter does not match the actual length\n");
     }
@@ -385,7 +385,7 @@ int i_handle(char *params)
     int file_size = inode_table[ret_id].i_size; // 获取文件当前的大小
     if (pos > file_size)
     {
-        _printf("\033[1;33mWarning: The <pos> parameter is greater than the file size and is appended to the end of the file!\033[0m\n");
+        responsecat("\033[1;33mWarning: The <pos> parameter is greater than the file size and is appended to the end of the file!\033[0m\n");
         fprintf(log_fp, "[WARNING] 'i' command warning: Invalid pos\n");
         pos = file_size; // 如果 pos 大于文件大小，则将数据插入到文件末尾
     }
@@ -413,7 +413,7 @@ int i_handle(char *params)
     else
     {
         fprintf(log_fp, "[ERROR] 'i' command error\n");
-        _printf("Failed.\n");
+        responsecat("Failed.\n");
     }
     return 0;
 }
@@ -424,7 +424,7 @@ int d_handle(char *params)
 {
     if (!formatted)
     {
-        _printf("Please first format.\n");
+        responsecat("Please first format.\n");
         return 0;
     }
     char buf[MAX_LINKS_PER_NODE * BLOCK_SIZE];
@@ -440,7 +440,7 @@ int d_handle(char *params)
     if ((ret_id = search_in_dir_inode(&inode_table[current_dir], file_name, 0)) < 0)
     { // 文件不存在
         fprintf(log_fp, "[ERROR] 'd' command error: File does not exist!\n");
-        _printf("File does not exist!\n");
+        responsecat("File does not exist!\n");
         return 0;
     }
 
@@ -465,14 +465,14 @@ int d_handle(char *params)
     memcpy(src, buf, pos);
     memcpy(src + pos, buf + pos + len, file_size - pos - len);
     src[file_size - len] = '\0';
-    // _printf("buf: %s\n", buf);
+    // responsecat("buf: %s\n", buf);
 
     if (write_file_inode(&inode_table[ret_id], src) == 0)
         fprintf(log_fp, "[INFO] 'd' executed sucessfully.\n");
     else
     {
         fprintf(log_fp, "[ERROR] 'd' command error\n");
-        _printf("Failed\n");
+        responsecat("Failed\n");
     }
     return 0;
 }
@@ -480,7 +480,7 @@ int d_handle(char *params)
 /** @brief 退出系统 */
 int exit_handle(char *params)
 {
-    _printf("Goodbye!\n");
+    responsecat("Goodbye!\n");
     fprintf(log_fp, "[INFO] Exited.\n");
     fclose(log_fp);
     return -1; //  返回-1使main中循环退出
@@ -499,11 +499,11 @@ int debug_getb_handle(char *params)
     for (int i = 0; i < BLOCK_SIZE; i++)
     {
         if (buf[i] == '\0')
-            _printf("\033[1;34m$\033[0m");
+            responsecat("\033[1;34m$\033[0m");
         else
-            _printf("%c", buf[i]);
+            responsecat("%c", buf[i]);
     }
-    _printf("\n\033[1;34m$\033[0m represents'\\0'\n");
+    responsecat("\n\033[1;34m$\033[0m represents'\\0'\n");
     return 0;
 }
 
@@ -518,45 +518,45 @@ int debug_geti_handle(char *params)
     inode *node = &inode_table[id];
     if (node->i_mode == 0)
     {
-        _printf("\033[1;33mThis is a file inode\033[0m\n");
-        _printf(" - index: %d\n", node->i_index);
-        _printf(" - mode: %d\n", node->i_mode);
-        _printf(" - link_count: %d\n", node->i_link_count);
-        _printf(" - size: %d\n", node->i_size);
-        _printf(" - timestamp: %d\n", node->i_timestamp);
-        _printf(" - parent: %d\n", node->i_parent);
-        _printf(" - direct: {");
+        responsecat("\033[1;33mThis is a file inode\033[0m\n");
+        responsecat(" - index: %d\n", node->i_index);
+        responsecat(" - mode: %d\n", node->i_mode);
+        responsecat(" - link_count: %d\n", node->i_link_count);
+        responsecat(" - size: %d\n", node->i_size);
+        responsecat(" - timestamp: %d\n", node->i_timestamp);
+        responsecat(" - parent: %d\n", node->i_parent);
+        responsecat(" - direct: {");
         for (int i = 0; i < 8; i++)
-            _printf("%d,", node->i_direct[i]);
-        _printf("}\n - single_indirect: %d\n", node->i_single_indirect);
+            responsecat("%d,", node->i_direct[i]);
+        responsecat("}\n - single_indirect: %d\n", node->i_single_indirect);
         if (node->i_single_indirect != 0)
         {
             char buf[TCP_BUF_SIZE];
             uint16_t indirect_blocks[128];
             read_block(node->i_single_indirect, buf);
             memcpy(&indirect_blocks, buf, BLOCK_SIZE);
-            _printf("{");
+            responsecat("{");
             for (int i = 0; i < 128; i++)
-                _printf("%d,", indirect_blocks[i]);
-            _printf("}\n");
+                responsecat("%d,", indirect_blocks[i]);
+            responsecat("}\n");
         }
     }
     else
     {
-        _printf("\033[1;33mThis is a dir inode\033[0m\n");
-        _printf(" - index: %d\n", node->i_index);
-        _printf(" - mode: %d\n", node->i_mode);
-        _printf(" - link_count: %d\n", node->i_link_count);
-        _printf(" - size: invalid\n");
-        _printf(" - timestamp: %d\n", node->i_timestamp);
+        responsecat("\033[1;33mThis is a dir inode\033[0m\n");
+        responsecat(" - index: %d\n", node->i_index);
+        responsecat(" - mode: %d\n", node->i_mode);
+        responsecat(" - link_count: %d\n", node->i_link_count);
+        responsecat(" - size: invalid\n");
+        responsecat(" - timestamp: %d\n", node->i_timestamp);
         if (node->i_parent == 65535)
-            _printf(" - parent: invalid\n");
+            responsecat(" - parent: invalid\n");
         else
-            _printf(" - parent: %d\n", node->i_parent);
-        _printf(" - direct: {");
+            responsecat(" - parent: %d\n", node->i_parent);
+        responsecat(" - direct: {");
         for (int i = 0; i < 8; i++)
-            _printf("%d,", node->i_direct[i]);
-        _printf("}\n");
+            responsecat("%d,", node->i_direct[i]);
+        responsecat("}\n");
     }
     return 0;
 }
@@ -614,12 +614,12 @@ void add_client(int id)
             current_dir = 0;
             strcpy(cur_path_string, "/");
             if (formatted)
-                _printf("Already have formatted file system. We've loaded it.\n");
+                responsecat("Already have formatted file system. We've loaded it.\n");
         }
     }
     else
     {
-        _printf("Don't find formatted file system. Please first format.\n");
+        responsecat("Don't find formatted file system. Please first format.\n");
     }
     //char *msg="/";
     //int ret=send(id, msg, strlen(msg)+1, 0);
@@ -650,9 +650,9 @@ int handle_client(int id, tcp_buffer *write_buf, char *msg, int len)
         if (strcmp(cmd_head, commands_list[i].cmd_head) == 0)
         {
             ret = commands_list[i].handle(params);
-            // if (!strlen(response)) _printf("Done.\n");
+            // if (!strlen(response)) responsecat("Done.\n");
             handled = true;
-            _printf(cur_path_string);
+            responsecat(cur_path_string);
             send_to_buffer(write_buf,response,strlen(response)+1);
             return 0;
         }

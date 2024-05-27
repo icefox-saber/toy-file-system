@@ -1,11 +1,12 @@
-#pragma once
+#pragma once  
 #include "superblock.h"
 #include <stdint.h>
 
 #define INODE_PER_BLOCK 8
 #define INODE_TABLE_START_BLOCK 3 
 #define MAX_LINKS_PER_NODE 136          //8 for direct, 128 for single-indirect
-
+#define DIR_ITEM_PER_BLOCK 8
+#define DIR_ITEM_NAME_LENGTH MAX_NAME_SIZE
 typedef struct inode{
     uint8_t i_mode;                     //0代表文件，1代表目录
     uint8_t i_link_count;               //已有的连接数量

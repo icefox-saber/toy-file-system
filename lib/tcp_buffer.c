@@ -11,9 +11,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 
 tcp_buffer *init_buffer() {
-    tcp_buffer *buf = malloc(sizeof(tcp_buffer));//这里类似于C++的new,动态分配内存，创建一个实例
+    tcp_buffer *buf = malloc(sizeof(tcp_buffer));
     buf->read_index = 0;
     buf->write_index = 0;
     return buf;
@@ -72,6 +73,8 @@ int buffer_input(tcp_buffer *buf, int sockfd) {
         int ret = recv(sockfd, &buf->buf[buf->write_index], writeable, 0);
         if (ret > 0) {
             recycle_write(buf, ret);
+        } else if (ret < 0 && (errno == EINTR || errno == EWOULDBLOCK || errno == EAGAIN)) {
+            continue;
         } else {  // ret <= 0, close
             close_flag = 1;
             break;
