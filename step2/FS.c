@@ -478,6 +478,7 @@ int rmdir_handle(char *params)
 }
 
 /** @brief 列出文件夹和文件名称*/
+/** @brief 列出文件夹和文件名称*/
 int ls_handle(char *params)
 {
     if (!formatted)
@@ -495,13 +496,13 @@ int ls_handle(char *params)
     if (ls_dir_inode(&inode_table[current_dir], buf, buf2, detailed) == 0)
     {
         fprintf(log_fp, "[DEBUG] response of 'ls': %s", buf);
-        if(detailed)
-            buf2[strlen(buf2)-13]=0;//手动修正多一个空格
         responsecat("%s", buf2);
         printf("%s", buf2);
     }
     return 0;
 }
+
+
 
 
 /** @brief 读取文件内容
@@ -1505,7 +1506,8 @@ int ls_dir_inode(inode *dir_node, char *ret, char *ret2, bool detailed)
                 {
                     read_inode(&file_inode, inode_index);
                     sprintf(detailed_info, "%d %d %s\n", file_inode.i_size, file_inode.i_timestamp, "file");
-                    strcat(file_name[i], detailed_info);//这里确认file_name不会用来搜索
+                    strcat(file_name[i], " ");
+                    strcat(file_name[i], detailed_info);//这里确认后面file_name不会用来搜索
                 }
             }
             for (int i = 0; i < num_dir; i++)
@@ -1516,6 +1518,7 @@ int ls_dir_inode(inode *dir_node, char *ret, char *ret2, bool detailed)
                 {
                     read_inode(&dir_inode, inode_index);
                     sprintf(detailed_info, "%d %d %s\n", dir_inode.i_size, dir_inode.i_timestamp, "dir");
+                    strcat(dir_name[i], " ");
                     strcat(dir_name[i], detailed_info);
                 }
             }
@@ -1528,21 +1531,26 @@ int ls_dir_inode(inode *dir_node, char *ret, char *ret2, bool detailed)
     dir[0] = '\0';
     for (int i = 0; i < num_dir; i++)
     {
-        if (i&&!detailed)
+        if (i)
             strcat(dir, "  ");
         strcat(dir, dir_name[i]);
     }
     file[0] = '\0';
     for (int i = 0; i < num_file; i++)
     {
-        if (i&&!detailed)
+        if (i)
             strcat(file, "  ");
         strcat(file, file_name[i]);
     }
-    if (flag)
+    if (flag&&!detailed)
     {
         sprintf(ret, "%s  &  %s\n", file, dir);
         sprintf(ret2, "%s  \033[1;34m%s\033[0m\n", file, dir);
+    }
+    else if(flag&&detailed)
+    {
+        sprintf(ret, "%s  &  %s\n", file, dir);
+        sprintf(ret2, "%s\033[1;34m%s\033[0m", file, dir);
     }
     else
     {
