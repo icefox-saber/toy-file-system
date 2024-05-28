@@ -235,6 +235,8 @@ int rm_from_dir_inode(inode *dir_node, char *name)
                 memcpy(buf, dir_items, sizeof(buf));
                 write_block(dir_node->i_direct[i], buf, 1);
                 dir_node->i_link_count--;
+                dir_node->i_timestamp = time(NULL);
+                write_inode(dir_node, dir_node->i_index);
 
                 return 0;
             }
@@ -306,24 +308,7 @@ int rmdir_from_dir_inode(inode *dir_node, char *name)
     return -1;
 }
 
-int check_dir_isempty_delete(inode *dir_node)
-{
-    dir_item dir_items[DIR_ITEM_PER_BLOCK];
-    char buf[BLOCK_SIZE];
-    for (int i = 0; i < 8; i++)
-    {
-        if (dir_node->i_direct[i] == 0)
-            continue;
-        read_block(dir_node->i_direct[i], buf);
-        memcpy(dir_items, buf, sizeof(buf));
-        for (int j = 0; j < DIR_ITEM_PER_BLOCK; j++)
-            if (dir_items[j].valid)
-                return -1;
-        free_block(dir_node->i_direct[i]);
-    }
-    free_inode(dir_node);
-    return 0;
-}
+
 
 int lexic_cmp(const void *a, const void *b)
 {
@@ -387,7 +372,8 @@ int ls_dir_inode(inode *dir_node, char *ret, char *ret2, bool detailed)
                 {
                     read_inode(&file_inode, inode_index);
                     sprintf(detailed_info, "%d %d %s\n", file_inode.i_size, file_inode.i_timestamp, "file");
-                    strcat(file_name[i], detailed_info);//这里确认file_name不会用来搜索
+                    strcat(file_name[i], " ");
+                    strcat(file_name[i], detailed_info);//这里确认后面file_name不会用来搜索
                 }
             }
             for (int i = 0; i < num_dir; i++)
@@ -398,6 +384,7 @@ int ls_dir_inode(inode *dir_node, char *ret, char *ret2, bool detailed)
                 {
                     read_inode(&dir_inode, inode_index);
                     sprintf(detailed_info, "%d %d %s\n", dir_inode.i_size, dir_inode.i_timestamp, "dir");
+                    strcat(dir_name[i], " ");
                     strcat(dir_name[i], detailed_info);
                 }
             }
@@ -410,14 +397,14 @@ int ls_dir_inode(inode *dir_node, char *ret, char *ret2, bool detailed)
     dir[0] = '\0';
     for (int i = 0; i < num_dir; i++)
     {
-        if (i&&!detailed)
+        if (i)
             strcat(dir, "  ");
         strcat(dir, dir_name[i]);
     }
     file[0] = '\0';
     for (int i = 0; i < num_file; i++)
     {
-        if (i&&!detailed)
+        if (i)
             strcat(file, "  ");
         strcat(file, file_name[i]);
     }
@@ -428,8 +415,8 @@ int ls_dir_inode(inode *dir_node, char *ret, char *ret2, bool detailed)
     }
     else if(flag&&detailed)
     {
-        sprintf(ret, "%s  &  %s", file, dir);
-        sprintf(ret2, "%s  \033[1;34m%s\033[0m", file, dir);
+        sprintf(ret, "%s  &  %s\n", file, dir);
+        sprintf(ret2, "%s\033[1;34m%s\033[0m", file, dir);
     }
     else
     {
