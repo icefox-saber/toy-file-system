@@ -7,61 +7,107 @@
 #include <stdbool.h>
 #include <stdlib.h>
 inode inode_table[MAX_INODE_COUNT];
+FILE *log_file;
+void log_message(const char *msg)
+{
+    fprintf(log_file, "%s\n", msg);
+    fflush(log_file);
+}
 int init_root_inode()
 {
-    int index=alloc_inode();
-    if(index!=0)
+    log_message("begin init root inode");
+    int index = alloc_inode();
+    if (index != 0)
+    {
+        log_message("init root inode file,index!=0");
         return -1;
+    }
     inode root;
-    init_inode(&root,index,1,0,0,65535);
+    init_inode(&root, index, 1, 0, 0, 65535, 0, 0);
     root.i_timestamp = time(NULL);
     memset(root.i_direct, 0, sizeof(root.i_direct));
     root.i_single_indirect = 0;
     inode_table[0] = root;
+    log_message("init root inode successful");
     return 0;
 }
 
-int init_inode(inode *node, uint16_t index, uint8_t mode, uint8_t link, uint16_t size, uint16_t parent)
+int init_inode(inode *node, uint16_t index, uint8_t mode, uint8_t link, uint16_t size, uint16_t parent, uint8_t owner, uint8_t lock)
 {
+    fprintf(log_file, "begin init inode%d\n", index);
     node->i_index = index;
     node->i_mode = mode;
     node->i_link_count = link;
     node->i_size = size;
     node->i_parent = parent;
+    node->i_owner = owner;
+    node->i_lock = lock;
     node->i_timestamp = time(NULL);
     memset(node->i_direct, 0, sizeof(node->i_direct));
     node->i_single_indirect = 0;
-    write_inode(node, index);
+    if (write_inode(node, index) != 0)
+    {
+        log_message("write inode fail in init inode");
+        return -1;
+    }
+    log_message("init inode successful");
     return 0;
 }
-
+uint8_t get_inode_owner(inode *node)
+{
+    return node->i_owner;
+}
+uint8_t get_inode_lock(inode *node)
+{
+    return node->i_lock;
+}
 int write_inode(inode *node, uint16_t index)
 {
+    fprintf(log_file, "begin write inode%d", index);
+
     int block_id = INODE_TABLE_START_BLOCK + index / INODE_PER_BLOCK; // 一个block有8个inode
     int inode_start = sizeof(inode) * (index % INODE_PER_BLOCK);      // 取余
     char buf[TCP_BUF_SIZE];
     if (read_block(block_id, buf) < 0)
+    {
+        log_message("read block fail in write inode");
         return -1;
+    }
     memcpy(buf + inode_start, node, sizeof(inode));
-    write_block(block_id, buf, 1);
+    if (write_block(block_id, buf, 1) < 0)
+    {
+        log_message("write block fail in write inode");
+        return -1;
+    }
+    log_message("write inode successful");
     return 0;
 }
 
 int read_inode(inode *node, uint16_t index)
 {
+    fprintf(log_file, "read inode %d\n", index);
     int block_id = INODE_TABLE_START_BLOCK + index / INODE_PER_BLOCK;
     int inode_start = sizeof(inode) * (index % INODE_PER_BLOCK);
     char buf[TCP_BUF_SIZE];
     if (read_block(block_id, buf) < 0)
+    {
+        log_message("read block fail in read inode");
         return -1;
+    }
+
     memcpy(node, &buf[inode_start], sizeof(inode));
-    return 1;
+    log_message("read inode success");
+    return 0;
 }
 
 int alloc_inode()
 {
+    log_message("begin alloc inode");
     if (!spb.s_free_inodes_count)
+    {
+        log_message("spb has no free inode alloc inode");
         return -1;
+    }
     for (int i = 0; i < MAX_INODE_MAP; i++)
     {
         uint32_t node = spb.inode_map[i];
@@ -78,23 +124,36 @@ int alloc_inode()
                 char buf[3 * BLOCK_SIZE]; // 将修改后的spb经由spb写入内存块1-3
                 memset(buf, 0, sizeof(buf));
                 memcpy(buf, &spb, sizeof(spb));
-                write_block(0, buf, 3);
+                if (write_block(0, buf, 3) < 0)
+                {
+                    log_message("alloc inode fail in write block");
+                    return -1;
+                }
+                fprintf(log_file, "alloc inode %d \n", i * 32 + j);
                 return i * 32 + j;
             }
         }
     }
+    log_message("alloc inode fail");
     return -1;
 }
-
 // dir型inode本函数将直接删除并释放块（不检查块中是否有文件，这应由上游完成）；file型会释放块
-int free_inode(inode *node)
+
+int free_inode(inode *node, uint8_t user)
 {
+    fprintf(log_file, "begin free inode %d\n", node->i_index);
     if (node->i_index <= 0)
+    {
+        log_message("free inode fail,index <=0");
         return -1; // Cannot free root
+    }
     int i = node->i_index / 32;
     int j = node->i_index % 32;
     if (((spb.inode_map[i] >> (31 - j)) & 1) == 0)
+    {
+        log_message("inode already freed");
         return 1; // This inode is already free
+    }
     else
     {
         for (int k = 0; k < 8; k++) // Free direct blocks
@@ -119,15 +178,20 @@ int free_inode(inode *node)
         memset(buf, 0, sizeof(buf));
         memcpy(buf, &spb, sizeof(spb));
         write_block(0, buf, 3);
+        log_message("free inode success");
         return 0;
     }
 }
-
+//由上游检查文件是否存在
 // 目录型inode仅direct有效，每个指向的块中含有8个dir_item，一共有64个dir_item可以存在一个目录下
-int add_to_dir_inode(inode *dir_node, char *name, uint8_t type)
+int add_to_dir_inode(inode *dir_node, char *name, uint8_t type, uint8_t owner, uint8_t lock)
 {
+    log_message("begin add_to_dir_inode");
     if (!dir_node->i_mode)
+    {
+        log_message("node is not dir add_to_diir_inode");
         return -1; // 不是目录结点
+    }
     char buf[TCP_BUF_SIZE];
     dir_item dir_items[8];
     for (int i = 0; i < 8; i++)
@@ -144,7 +208,7 @@ int add_to_dir_inode(inode *dir_node, char *name, uint8_t type)
                 int new_inode_id = alloc_inode();
                 if (new_inode_id >= 0)
                 {
-                    init_inode(&inode_table[new_inode_id], new_inode_id, type, 0, 0, dir_node->i_index);
+                    init_inode(&inode_table[new_inode_id], new_inode_id, type, 0, 0, dir_node->i_index, owner, lock);
 
                     dir_items[j].valid = 1;
                     strcpy(dir_items[j].name, name);
@@ -161,7 +225,10 @@ int add_to_dir_inode(inode *dir_node, char *name, uint8_t type)
                     return 0;
                 }
                 else
+                {
+                    log_message("add to dir inode fail new_inode_id<0 ");
                     return -1;
+                }
             }
         }
     }
@@ -186,7 +253,7 @@ int add_to_dir_inode(inode *dir_node, char *name, uint8_t type)
                     dir_items[i].valid = 0;
                     dir_items[i].inode_id = 0;
                 }
-                init_inode(&inode_table[new_inode_id], new_inode_id, type, 0, 0, dir_node->i_index); // 新direct-block第一位创建新inode
+                init_inode(&inode_table[new_inode_id], new_inode_id, type, 0, 0, dir_node->i_index, owner, lock); // 新direct-block第一位创建新inode
 
                 dir_items[0].valid = 1;
                 strcpy(dir_items[0].name, name);
@@ -203,40 +270,59 @@ int add_to_dir_inode(inode *dir_node, char *name, uint8_t type)
                 return 0;
             }
             else
+            {
+                log_message("add to dir inode fail new_inode_id<0 ");
                 return -1;
+            }
         }
         else
+        {
+            log_message("add to dir inode fail new block <0 ");
             return -1;
+        }
     }
+    log_message("add to dir inode fail end ");
     return -1;
 }
-int rm_from_dir_inode(inode *dir_node, char *name)
+int rm_from_dir_inode(inode *dir_node, char *name, uint8_t user)
 {
-    dir_item dir_items[DIR_ITEM_PER_BLOCK];
+    fprintf(log_file, "begin rm file%s", name);
+    uint8_t owner;
+    uint8_t lock;
+    if (!dir_node->i_mode)
+        return -1;
     char buf[BLOCK_SIZE];
-
+    dir_item dir_items[8];
     for (int i = 0; i < 8; i++)
     {
         if (dir_node->i_direct[i] == 0)
-            break;
-
-        read_block(dir_node->i_direct[i], buf);
-        memcpy(dir_items, buf, sizeof(buf));
-
-        for (int j = 0; j < DIR_ITEM_PER_BLOCK; j++)
+            continue;
+        if (read_block(dir_node->i_direct[i], buf) < 0)
+            continue;
+        memcpy(&dir_items, buf, BLOCK_SIZE);
+        for (int j = 0; j < 8; j++)
         {
-            if (!dir_items[j].valid)
+            if (dir_items[j].valid == 0)
                 continue;
-
-            if (strcmp(dir_items[j].name, name) == 0)
-            {
+            if (strcmp(dir_items[j].name, name) == 0 && dir_items[j].type == 0)
+            { // 名称相符且是文件
+                lock = get_inode_lock(&inode_table[dir_items[j].inode_id]);
+                owner = get_inode_owner(&inode_table[dir_items[j].inode_id]);
+                bool able = (user == 0 || lock == 0 || owner == user);
+                if (!able)
+                {
+                    log_message("access deny");
+                    return -1;
+                }
+                free_inode(&inode_table[dir_items[j].inode_id], user);
                 dir_items[j].valid = 0;
-                memcpy(buf, dir_items, sizeof(buf));
-                write_block(dir_node->i_direct[i], buf, 1);
-                dir_node->i_link_count--;
-                dir_node->i_timestamp = time(NULL);
-                write_inode(dir_node, dir_node->i_index);
+                memcpy(buf, &dir_items, BLOCK_SIZE);
+                if (write_block(dir_node->i_direct[i], buf, 1) < 0)
+                    return -1;
 
+                dir_node->i_timestamp = time(NULL);
+                if (write_inode(dir_node, dir_node->i_index) < 0)
+                    return -1;
                 return 0;
             }
         }
@@ -244,8 +330,12 @@ int rm_from_dir_inode(inode *dir_node, char *name)
     return -1;
 }
 
-int rmdir_from_dir_inode(inode *dir_node, char *name)
+int rmdir_from_dir_inode(inode *dir_node, char *name, uint8_t user)
 {
+
+    fprintf(log_file, "rmdir%s from dir inode begin\n", name);
+    uint8_t owner;
+    uint8_t lock;
     dir_item dir_items[DIR_ITEM_PER_BLOCK];
     char buf[BLOCK_SIZE];
 
@@ -264,6 +354,14 @@ int rmdir_from_dir_inode(inode *dir_node, char *name)
 
             if (strcmp(dir_items[j].name, name) == 0)
             {
+                lock = get_inode_lock(&inode_table[dir_items[j].inode_id]);
+                owner = get_inode_owner(&inode_table[dir_items[j].inode_id]);
+                bool able = (user == 0 || lock == 0 || owner == user);
+                if (!able)
+                {
+                    log_message("access deny");
+                    return -1;
+                }
                 inode child;
                 read_inode(&child, dir_items[j].inode_id);
 
@@ -284,26 +382,33 @@ int rmdir_from_dir_inode(inode *dir_node, char *name)
 
                         if (child_items[l].type == 0)
                         { // File
-                            rm_from_dir_inode(&child, child_items[l].name);
+                            if (rm_from_dir_inode(&child, child_items[l].name, user) < 0)
+                            {
+                                return -1;
+                            }
                         }
                         else if (child_items[l].type == 1)
                         { // Directory
-                            rmdir_from_dir_inode(&child, child_items[l].name);
+                            if (rmdir_from_dir_inode(&child, child_items[l].name, user) < 0)
+                            {
+                                return -1;
+                            }
                         }
                     }
                 }
 
                 // Free the directory inode itself after all contents are removed
-                free_inode(&child);
+                free_inode(&child, user);
                 dir_items[j].valid = 0;
                 memcpy(buf, dir_items, sizeof(buf));
                 write_block(dir_node->i_direct[i], buf, 1);
                 dir_node->i_link_count--;
-
+                fprintf(log_file, "rmdir %s from dir inode success\n", name);
                 return 0;
             }
         }
     }
+    fprintf(log_file, "rmdir %s from dir inode fail\n", name);
     return -1;
 }
 
@@ -320,10 +425,16 @@ int lexic_cmp(const void *a, const void *b)
     return strcmp(item1->name, item2->name);
 }
 
-int ls_dir_inode(inode *dir_node, char *ret, char *ret2, bool detailed)
+int ls_dir_inode(inode *dir_node, char *ret, char *ret2, bool detailed, uint8_t user)
 {
+    uint8_t owner;
+    uint8_t lock;
+    log_message("ls begin");
     if (!dir_node->i_mode)
+    {
+        log_message("ls fail !i mode");
         return -1;
+    }
     char buf[TCP_BUF_SIZE];
     bool flag = false; // 文件夹是否为空，false代表空
 
@@ -346,6 +457,13 @@ int ls_dir_inode(inode *dir_node, char *ret, char *ret2, bool detailed)
         {
             if (dir_items[j].valid)
             {
+                lock = get_inode_lock(&inode_table[dir_items[j].inode_id]);
+                owner = get_inode_owner(&inode_table[dir_items[j].inode_id]);
+                bool able = (user == 0 || lock <= 1 || owner == user);
+                if (!able)
+                {
+                    continue;
+                }
                 if (dir_items[j].type == 1)
                     strcpy(dir_name[num_dir++], dir_items[j].name);
                 else
@@ -364,7 +482,7 @@ int ls_dir_inode(inode *dir_node, char *ret, char *ret2, bool detailed)
             for (int i = 0; i < num_file; i++)
             {
                 inode file_inode;
-                int inode_index = search_in_dir_inode(dir_node, file_name[i], 0);
+                int inode_index = search_in_dir_inode(dir_node, file_name[i], 0, user);
                 if (inode_index >= 0)
                 {
                     read_inode(&file_inode, inode_index);
@@ -376,7 +494,7 @@ int ls_dir_inode(inode *dir_node, char *ret, char *ret2, bool detailed)
             for (int i = 0; i < num_dir; i++)
             {
                 inode dir_inode;
-                int inode_index = search_in_dir_inode(dir_node, dir_name[i], 1);
+                int inode_index = search_in_dir_inode(dir_node, dir_name[i], 1, user);
                 if (inode_index >= 0)
                 {
                     read_inode(&dir_inode, inode_index);
@@ -420,11 +538,15 @@ int ls_dir_inode(inode *dir_node, char *ret, char *ret2, bool detailed)
         sprintf(ret, " \n");
         sprintf(ret2, " \n");
     }
+    log_message("ls success");
     return 0;
 }
 
-int search_in_dir_inode(inode *dir_node, char *name, int type)
+int search_in_dir_inode(inode *dir_node, char *name, int type, uint8_t user)
 {
+    uint8_t owner;
+    uint8_t lock;
+    fprintf(log_file, "search %s bengin\n", name);
     dir_item dir_items[DIR_ITEM_PER_BLOCK];
     char buf[BLOCK_SIZE];
     for (int i = 0; i < 8; i++)
@@ -437,17 +559,44 @@ int search_in_dir_inode(inode *dir_node, char *name, int type)
         {
             if (!dir_items[j].valid)
                 continue;
+            lock = get_inode_lock(&inode_table[dir_items[j].inode_id]);
+            owner = get_inode_owner(&inode_table[dir_items[j].inode_id]);
+            bool able = (user == 0 || lock <= 1 || owner == user);
+            if (!able)
+            {
+                log_message("access deny");
+                continue;
+            }
             if (strcmp(dir_items[j].name, name) == 0 && dir_items[j].type == type)
+            {
+                log_message("search success");
                 return dir_items[j].inode_id;
+            }
         }
     }
+    log_message("search fail");
     return -1;
 }
 
-int read_file_inode(inode *file_node, char *ret)
+int read_file_inode(inode *file_node, char *ret, uint8_t user)
 {
+    uint8_t owner;
+    uint8_t lock;
+
+    log_message("read file begin");
+    lock = get_inode_lock(file_node);
+    owner = get_inode_owner(file_node);
+    bool able = (user == 0 || lock <= 1 || owner == user);
+    if (!able)
+    {
+        log_message("access deny");
+        return -1;
+    }
     if (file_node->i_mode)
+    {
+        log_message("not a file");
         return -1; // 不是文件则退出
+    }
     uint16_t indirect_blocks[128];
     char buf[TCP_BUF_SIZE];
     memset(ret, 0, sizeof(&ret));
@@ -494,13 +643,29 @@ int read_file_inode(inode *file_node, char *ret)
             memcpy(ret + (i + 8) * BLOCK_SIZE, buf, size_to_copy);
         }
     }
+    log_message("read file finished");
     return 0;
 }
 
-int write_file_inode(inode *file_node, char *src)
+int write_file_inode(inode *file_node, char *src, uint8_t user)
 {
+
+    log_message("write file begin");
+    uint8_t owner;
+    uint8_t lock;
+    lock = get_inode_lock(file_node);
+    owner = get_inode_owner(file_node);
+    bool able = (user == 0 || lock == 0 || owner == user);
+    if (!able)
+    {
+        log_message("access deny");
+        return -1;
+    }
     if (file_node->i_mode)
+    {
+        log_message("not a file");
         return -1; // 不是文件则退出
+    }
     uint16_t indirect_blocks[128];
     memset(indirect_blocks, 0, sizeof(indirect_blocks));
     int need_link_count = (strlen(src) + BLOCK_SIZE - 1) / BLOCK_SIZE;
@@ -611,5 +776,6 @@ int write_file_inode(inode *file_node, char *src)
     file_node->i_size = strlen(src);           // size储存文件实际长度
     file_node->i_timestamp = time(NULL);
     write_inode(file_node, file_node->i_index);
+    log_message("write file finish");
     return 0;
 }

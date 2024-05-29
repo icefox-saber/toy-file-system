@@ -16,12 +16,12 @@ typedef struct inode{
     uint16_t i_direct[8];               //直接块（记录block编号，block编号统一使用uine16_t）
     uint16_t i_single_indirect;         //一层间接块
     uint8_t i_owner;                    //owner
-    uint8_t i_lock;                     //access lock
-    uint16_t i_index;
+    uint8_t i_lock;                     //access lock 0表示可读可写，1表示可读不可写，2表示不可读不可写，owner权限不受限
+    uint16_t i_index;  
 } inode; //32 bytes
 
 extern inode inode_table[MAX_INODE_COUNT];
-
+extern FILE *log_file;
 /**
  * @brief 初始化root inode节点
  * @return 返回0代表成功，-1代表失败
@@ -32,7 +32,7 @@ int init_root_inode();
  * @brief 初始化inode节点
  * @return 返回0代表成功，-1代表失败
  */
-int init_inode(inode* node, uint16_t index, uint8_t mode, uint8_t link, uint16_t size, uint16_t parent);
+int init_inode(inode* node, uint16_t index, uint8_t mode, uint8_t link, uint16_t size, uint16_t parent,uint8_t owner,uint8_t lock);
 
 /**
  * @brief 写inode到inode_table的block
@@ -61,7 +61,7 @@ int alloc_inode();
  * @param node 节点指针
  * @return 返回0代表成功，-1代表失败，1代表本块本身已经空闲
  */
-int free_inode(inode* node);
+int free_inode(inode* node,uint8_t user);
 
 /**
  * @brief 在目录结点下新增文件或文件夹
@@ -70,7 +70,7 @@ int free_inode(inode* node);
  * @param type 要新建dir_item的种类（0代表文件，1代表目录）
  * @return 返回0代表成功，-1代表失败
 */
-int add_to_dir_inode(inode* dir_node, char* name, uint8_t type);
+int add_to_dir_inode(inode* dir_node, char* name, uint8_t type,uint8_t owner,uint8_t lock);
 
 /**
  * @brief 从文件夹中删除文件dir_item
@@ -78,7 +78,7 @@ int add_to_dir_inode(inode* dir_node, char* name, uint8_t type);
  * @param name 要删除dir_item的名称
  * @return 返回0代表成功，-1代表失败
 */
-int rm_from_dir_inode(inode* dir_node, char* name);
+int rm_from_dir_inode(inode* dir_node, char* name,uint8_t user);
 
 /**
  * @brief 从文件夹中删除文件夹dir_item
@@ -86,14 +86,8 @@ int rm_from_dir_inode(inode* dir_node, char* name);
  * @param name 要删除dir_item的名称
  * @return 返回0代表成功，-1代表失败
 */
-int rmdir_from_dir_inode(inode* dir_node, char* name);
+int rmdir_from_dir_inode(inode* dir_node, char* name,uint8_t user);
 
-/**
- * @brief 检查dir_node是否为空，若空（无block或block中全valid = 0）则删除并归还block
- * @param dir_node 目标路径dir_inode指针
- * @return 返回0代表成功，-1代表失败
-*/
-int check_dir_isempty_delete(inode* dir_node);
 
 /**
  * @brief 用于按字典序std-qsort时作为cmp函数
@@ -109,7 +103,7 @@ int lexic_cmp(const void *a, const void *b);
  * 
  * @return 返回0代表成功，-1代表失败或空
 */
-int ls_dir_inode(inode *dir_node, char *ret, char *ret2, bool detailed);
+int ls_dir_inode(inode *dir_node, char *ret, char *ret2, bool detailed,uint8_t user);
 
 /**
  * @brief 按名称从文件夹寻找子文件夹或子文件
@@ -117,7 +111,7 @@ int ls_dir_inode(inode *dir_node, char *ret, char *ret2, bool detailed);
  * @param name 目标dir_item名称
  * @return 返回大于等于0代表成功（即子项的inode_id），失败返回-1
 */
-int search_in_dir_inode(inode* dir_node, char* name, int type);
+int search_in_dir_inode(inode* dir_node, char* name, int type,uint8_t user);
 
 /**
  * @brief 读文件inode的内容
@@ -125,7 +119,7 @@ int search_in_dir_inode(inode* dir_node, char* name, int type);
  * @param ret 将读取结果返回的字符串
  * @return 返回0代表成功，失败返回-1
 */
-int read_file_inode(inode* file_node, char* ret);
+int read_file_inode(inode* file_node, char* ret,uint8_t user);
 
 /**
  * @brief 写文件inode的内容
@@ -133,4 +127,4 @@ int read_file_inode(inode* file_node, char* ret);
  * @param src 要写入的字符串
  * @return 返回0代表成功，失败返回-1
 */
-int write_file_inode(inode* file_node, char* src);
+int write_file_inode(inode* file_node, char* src,uint8_t user);
