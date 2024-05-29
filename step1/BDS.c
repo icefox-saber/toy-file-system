@@ -5,6 +5,8 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <ctype.h>
+
 
 #include "tcp_utils.h"
 // 需要完成4个cmd函数
@@ -19,6 +21,17 @@ FILE *fp;         //全局文件指针
 // information
 // args和len没用，为了模板化加的参数
 
+int is_number(const char *str)
+{
+    while (*str)
+    {
+        if (!isdigit(*str))
+            return 0;
+        str++;
+    }
+    return 1;
+}
+
 int cmd_i(tcp_buffer *write_buf, char *args, int len)
 {
     static char buf[64];
@@ -30,94 +43,111 @@ int cmd_i(tcp_buffer *write_buf, char *args, int len)
 }
 
 // read cylinder sector args len
+// read cylinder sector args len
+// read cylinder sector args len
 int cmd_r(tcp_buffer *write_buf, char *args, int len)
 {
     static char *msg0 = "NO";
     static char buf[BLOCKSIZE];
     char *c = strtok(args, " ");
     char *s = strtok(NULL, " ");
-    if (!c || !s)
+    *(s+strlen(s)-1)=0;
+    if (!c || !s || !is_number(c) || !is_number(s))
     {
         send_to_buffer(write_buf, msg0, strlen(msg0));
-        return 0; // 或者返回错误代码
+        return 0;
     }
-    int cylinder = atoi(c); //这里可能会异常即c为空
+    int cylinder = atoi(c);
     int sector = atoi(s);
+    if (cylinder < 0 || cylinder >= ncyl || sector < 0 || sector >= nsec)
+    {
+        send_to_buffer(write_buf, msg0, strlen(msg0));
+        return 0;
+    }
+
     usleep(ttd * abs(currentcyl - cylinder));
     currentcyl = cylinder;
     // 计算文件偏移量
     long offset = (cylinder * nsec + sector) * BLOCKSIZE;
 
-    static char *msg1 = "NO";
-    static char *msg2 = "NO";
-    // 定位文件偏移量
     if (fseek(fp, offset, SEEK_SET) == -1)
     {
-        send_to_buffer(write_buf, msg1, strlen(msg1));
+        send_to_buffer(write_buf, msg0, strlen(msg0));
         return 0; // 或者返回错误代码
     }
 
-    // 读取数据
-    size_t num = fread(buf, 1, BLOCKSIZE, fp); //这里即使是空也会读入256个字符
-    if (num == 0)
+    size_t num = fread(buf, 1, BLOCKSIZE, fp);
+    if (num != BLOCKSIZE)
     {
-        send_to_buffer(write_buf, "NO", strlen(msg2));
+        send_to_buffer(write_buf, msg0, strlen(msg0));
         return 0; // 或者返回错误代码
     }
-	char *megsyes="Yes";
-	char *res=strcat(buf,megsyes);
-    // 发送数据到缓冲区
-    send_to_buffer(write_buf, res, num);
+
+    static char response[BLOCKSIZE + 5];
+    snprintf(response, sizeof(response), "Yes");
+    memcpy(response + 4, buf, BLOCKSIZE);
+
+    send_to_buffer(write_buf, response, BLOCKSIZE + 4);
     return 0;
 }
+
+
 
 //W
 //args:cylinder sector len data
 //len:strlen(args)
+// args:cylinder sector len data
+// len:strlen(args)
+// args:cylinder sector len data
+// len:strlen(args)
 int cmd_w(tcp_buffer *write_buf, char *args, int len)
 {
     static char *msg0 = "NO";
-    //static char buf[BLOCKSIZE];
     char *c = strtok(args, " ");
     char *s = strtok(NULL, " ");
-
     char *l = strtok(NULL, " ");
-    if (!c || !s || !l)
+    char *d = strtok(NULL, "\0");
+
+    if (!c || !s || !l || !d || !is_number(c) || !is_number(s) || !is_number(l))
     {
         send_to_buffer(write_buf, msg0, strlen(msg0));
-        return 0; // 或者返回错误代码
+        return 0;
     }
     int cylinder = atoi(c);
     int sector = atoi(s);
     int datalen = atoi(l);
-    char *d = strtok(NULL, "\0");
-    // 计算文件偏移量
+
+    if (cylinder < 0 || cylinder >= ncyl || sector < 0 || sector >= nsec || datalen < 0 || datalen > BLOCKSIZE)
+    {
+        send_to_buffer(write_buf, msg0, strlen(msg0));
+        return 0;
+    }
+
     usleep(ttd * abs(currentcyl - cylinder));
     currentcyl = cylinder;
     long offset = (cylinder * nsec + sector) * BLOCKSIZE;
 
-    static char *msg1 = "NO";
-    static char *msg2 = "NO";
-    // 定位文件偏移量
-
     if (fseek(fp, offset, SEEK_SET) == -1)
     {
-        send_to_buffer(write_buf, msg1, strlen(msg1));
+        send_to_buffer(write_buf, msg0, strlen(msg0));
         return 0; // 或者返回错误代码
     }
 
-    // 写入数据
-    size_t written = fwrite(d, 1, datalen, fp);
-    if (written != datalen)
+    char buffer[BLOCKSIZE] = {0};
+    memcpy(buffer, d, datalen);
+
+    size_t written = fwrite(buffer, 1, BLOCKSIZE, fp);
+    if (written != BLOCKSIZE)
     {
-        send_to_buffer(write_buf, msg2, strlen(msg2));
+        send_to_buffer(write_buf, msg0, strlen(msg0));
         return 0; // 或者返回错误代码
     }
 
-    // 发送成功消息到缓冲区
     send_to_buffer(write_buf, "Yes", 4);
     return 0;
 }
+
+
 
 // exit
 int cmd_e(tcp_buffer *write_buf, char *args, int len)

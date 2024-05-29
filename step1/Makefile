@@ -22,6 +22,6 @@ include ${SRC:.c=.d}
 	rm -f $@.$$$$
 
 clean:
-	rm -f *.o *.d BDS FC FS disk
+	rm -f *.o *.d BDS BDC disk
 
 .PHONY: all clean
