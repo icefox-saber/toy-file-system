@@ -4,4 +4,4 @@ all:
 	@for n in $(SUB_DIR); do $(MAKE) -C $$n || exit 1; done
 
 clean:
-	rm -f ./**/*.o ./**/*.d ./**/BDS ./**/BDC ./**/FS ./**/FC
+	@for n in $(SUB_DIR); do $(MAKE) -C $$n clean || exit 1; done

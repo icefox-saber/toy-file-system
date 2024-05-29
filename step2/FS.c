@@ -1,3 +1,4 @@
+//./FS 8086 8088
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,14 +25,14 @@
 #define BLOCK_SIZE 256
 #define TCP_BUF_SIZE 4096
 
-extern char disk_file[MAX_BLOCK_COUNT][BLOCK_SIZE];    //磁盘数据文件
+extern char disk_file[MAX_BLOCK_COUNT][BLOCK_SIZE]; // 磁盘数据文件
 extern tcp_client client;
 /**
  * @brief 将数据写入块
  * @return 返回0代表成功，-1代表失败
  * @param block_no--写入起始块号
  * @param buf--要写入的数据
- * @param block_num--写入块的数量（默认连续写入且不做覆盖检查，检查应在上游函数完成） 
+ * @param block_num--写入块的数量（默认连续写入且不做覆盖检查，检查应在上游函数完成）
  */
 int write_block(int block_no, char *buf, int block_num);
 
@@ -46,7 +47,7 @@ int read_block(int block_no, char *buf);
 /**
  * @brief 查询磁盘信息
  * @return 返回-1失败，正数则为磁盘总块数
-*/
+ */
 int get_disk_info();
 #include <fcntl.h>
 #include <stdio.h>
@@ -61,24 +62,25 @@ int get_disk_info();
 #include "tcp_utils.h"
 
 #define BLOCK_SIZE 256
-#define MAX_INODE_MAP 32  
+#define MAX_INODE_MAP 32
 #define MAX_BLOCK_MAP 128
-#define MAX_INODE_COUNT 1024            
-#define MAX_BLOCK_COUNT 4096            
+#define MAX_INODE_COUNT 1024
+#define MAX_BLOCK_COUNT 4096
 #define RESERVE_BLOCK 131
 #define SUPERBLOCK_SIZE 3
 #define MAGIC_NUMBER 0xE986
 #define INITIAL_USED_BLOCKS 131
 
-typedef struct super_block {
-    uint16_t s_magic;              
-    uint32_t s_inodes_count;       
-    uint32_t s_blocks_count;       
-    uint32_t s_free_inodes_count;  
-    uint32_t s_free_blocks_count;  
-    uint32_t s_root;               
-    uint32_t block_map[MAX_BLOCK_MAP];  
-    uint32_t inode_map[MAX_INODE_MAP];  
+typedef struct super_block
+{
+    uint16_t s_magic;
+    uint32_t s_inodes_count;
+    uint32_t s_blocks_count;
+    uint32_t s_free_inodes_count;
+    uint32_t s_free_blocks_count;
+    uint32_t s_root;
+    uint32_t block_map[MAX_BLOCK_MAP];
+    uint32_t inode_map[MAX_INODE_MAP];
 } super_block;
 
 extern super_block spb;
@@ -88,7 +90,6 @@ int load_spb();
 int check_spb();
 int alloc_block();
 int free_block(uint16_t index);
-
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -105,33 +106,35 @@ int free_block(uint16_t index);
 
 #define MAX_NAME_SIZE 28
 
-typedef struct dir_item {   
-    uint16_t inode_id;          // 当前目录项表示的文件/目录的对应inode
-    uint8_t valid;              // 当前目录项是否有效 
-    uint8_t type;               // 当前目录项类型（文件/目录）
-    char name[MAX_NAME_SIZE];   // 目录项表示的文件/目录的文件名/目录名
-} dir_item;  // 32bytes
+typedef struct dir_item
+{
+    uint16_t inode_id;        // 当前目录项表示的文件/目录的对应inode
+    uint8_t valid;            // 当前目录项是否有效
+    uint8_t type;             // 当前目录项类型（文件/目录）
+    char name[MAX_NAME_SIZE]; // 目录项表示的文件/目录的文件名/目录名
+} dir_item;                   // 32bytes
 
-extern dir_item dir_items[8]; //256bytes
+extern dir_item dir_items[8]; // 256bytes
 #include <stdint.h>
 #include <stdbool.h>
 #define INODE_PER_BLOCK 8
-#define INODE_TABLE_START_BLOCK 3 
-#define MAX_LINKS_PER_NODE 136          //8 for direct, 128 for single-indirect
+#define INODE_TABLE_START_BLOCK 3
+#define MAX_LINKS_PER_NODE 136 // 8 for direct, 128 for single-indirect
 #define DIR_ITEM_PER_BLOCK 8
 #define DIR_ITEM_NAME_LENGTH MAX_NAME_SIZE
-typedef struct inode{
-    uint8_t i_mode;                     //0代表文件，1代表目录
-    uint8_t i_link_count;               //已有的连接数量
-    uint16_t i_size;                    //记录文件大小
-    uint32_t i_timestamp;               //记录文件修改时间
-    uint16_t i_parent;                  //父inode编号（65535表示无）
-    uint16_t i_direct[8];               //直接块（记录block编号，block编号统一使用uine16_t）
-    uint16_t i_single_indirect;         //一层间接块
-    uint8_t i_owner;                    //owner
-    uint8_t i_lock;                     //access lock 0表示可读可写，1表示可读不可写，2表示不可读不可写，owner权限不受限
-    uint16_t i_index;  
-} inode; //32 bytes
+typedef struct inode
+{
+    uint8_t i_mode;             // 0代表文件，1代表目录
+    uint8_t i_link_count;       // 已有的连接数量
+    uint16_t i_size;            // 记录文件大小
+    uint32_t i_timestamp;       // 记录文件修改时间
+    uint16_t i_parent;          // 父inode编号（65535表示无）
+    uint16_t i_direct[8];       // 直接块（记录block编号，block编号统一使用uine16_t）
+    uint16_t i_single_indirect; // 一层间接块
+    uint8_t i_owner;            // owner
+    uint8_t i_lock;             // access lock 0表示可读可写，1表示可读不可写，2表示不可读不可写，owner权限不受限
+    uint16_t i_index;
+} inode; // 32 bytes
 
 extern inode inode_table[MAX_INODE_COUNT];
 extern FILE *log_file;
@@ -145,7 +148,7 @@ int init_root_inode();
  * @brief 初始化inode节点
  * @return 返回0代表成功，-1代表失败
  */
-int init_inode(inode* node, uint16_t index, uint8_t mode, uint8_t link, uint16_t size, uint16_t parent,uint8_t owner,uint8_t lock);
+int init_inode(inode *node, uint16_t index, uint8_t mode, uint8_t link, uint16_t size, uint16_t parent, uint8_t owner, uint8_t lock);
 
 /**
  * @brief 写inode到inode_table的block
@@ -153,7 +156,7 @@ int init_inode(inode* node, uint16_t index, uint8_t mode, uint8_t link, uint16_t
  * @param index 要写的inode在inode_table中的编号
  * @return 返回0代表成功，-1代表失败
  */
-int write_inode(inode* node, uint16_t index);
+int write_inode(inode *node, uint16_t index);
 
 /**
  * @brief 读disk的inode_table
@@ -161,7 +164,7 @@ int write_inode(inode* node, uint16_t index);
  * @param index 要读取的inode在inode_table中的编号
  * @return 返回0代表成功，-1代表失败
  */
-int read_inode(inode* node, uint16_t index);
+int read_inode(inode *node, uint16_t index);
 
 /**
  * @brief 寻找并分配空闲inode节点
@@ -174,7 +177,7 @@ int alloc_inode();
  * @param node 节点指针
  * @return 返回0代表成功，-1代表失败，1代表本块本身已经空闲
  */
-int free_inode(inode* node,uint8_t user);
+int free_inode(inode *node, uint8_t user);
 
 /**
  * @brief 在目录结点下新增文件或文件夹
@@ -182,29 +185,28 @@ int free_inode(inode* node,uint8_t user);
  * @param name 要新建dir_item的名称
  * @param type 要新建dir_item的种类（0代表文件，1代表目录）
  * @return 返回0代表成功，-1代表失败
-*/
-int add_to_dir_inode(inode* dir_node, char* name, uint8_t type,uint8_t owner,uint8_t lock);
+ */
+int add_to_dir_inode(inode *dir_node, char *name, uint8_t type, uint8_t owner, uint8_t lock);
 
 /**
  * @brief 从文件夹中删除文件dir_item
  * @param dir_node 目标路径dir_inode指针
  * @param name 要删除dir_item的名称
  * @return 返回0代表成功，-1代表失败
-*/
-int rm_from_dir_inode(inode* dir_node, char* name,uint8_t user);
+ */
+int rm_from_dir_inode(inode *dir_node, char *name, uint8_t user);
 
 /**
  * @brief 从文件夹中删除文件夹dir_item
  * @param dir_node 目标路径dir_inode指针
  * @param name 要删除dir_item的名称
  * @return 返回0代表成功，-1代表失败
-*/
-int rmdir_from_dir_inode(inode* dir_node, char* name,uint8_t user);
-
+ */
+int rmdir_from_dir_inode(inode *dir_node, char *name, uint8_t user);
 
 /**
  * @brief 用于按字典序std-qsort时作为cmp函数
-*/
+ */
 int lexic_cmp(const void *a, const void *b);
 
 /**
@@ -213,34 +215,34 @@ int lexic_cmp(const void *a, const void *b);
  * @param ret 结果字符串(写入log 不带颜色)
  * @param ret2 结果字符串(显示 带颜色)
  * @param detailed true表示ls -l命令,false表示ls
- * 
+ *
  * @return 返回0代表成功，-1代表失败或空
-*/
-int ls_dir_inode(inode *dir_node, char *ret, char *ret2, bool detailed,uint8_t user);
+ */
+int ls_dir_inode(inode *dir_node, char *ret, char *ret2, bool detailed, uint8_t user);
 
 /**
  * @brief 按名称从文件夹寻找子文件夹或子文件
  * @param dir_node 目标路径dir_inode指针
  * @param name 目标dir_item名称
  * @return 返回大于等于0代表成功（即子项的inode_id），失败返回-1
-*/
-int search_in_dir_inode(inode* dir_node, char* name, int type,uint8_t user);
+ */
+int search_in_dir_inode(inode *dir_node, char *name, int type, uint8_t user);
 
 /**
  * @brief 读文件inode的内容
  * @param file_node 目标文件file_inode指针
  * @param ret 将读取结果返回的字符串
  * @return 返回0代表成功，失败返回-1
-*/
-int read_file_inode(inode* file_node, char* ret,uint8_t user);
+ */
+int read_file_inode(inode *file_node, char *ret, uint8_t user);
 
 /**
  * @brief 写文件inode的内容
  * @param file_node 目标文件file_inode指针
  * @param src 要写入的字符串
  * @return 返回0代表成功，失败返回-1
-*/
-int write_file_inode(inode* file_node, char* src,uint8_t user);
+ */
+int write_file_inode(inode *file_node, char *src, uint8_t user);
 
 //./FS localhost 10356 12356
 #define COMMAND_LENGTH 4096
@@ -251,7 +253,7 @@ int server_socket;
 int disk_server_socket;
 char response[RESPONSE_LENGTH] = "";
 
-uint16_t current_dir[256] = {65535};                   // 当前目录结点编号
+uint16_t current_dir[256] = {65535};            // 当前目录结点编号
 char cur_path_string[256][MAX_PATH_STR_LENGTH]; // 当前目录字符串
 uint8_t uid[256];
 bool formatted = false; // 是否格式化
@@ -756,7 +758,7 @@ Command commands_list[] = {
     {"i", i_handle},
     {"d", d_handle},
     {"e", exit_handle},
-    {"ini",ini_handle},
+    {"ini", ini_handle},
 };
 
 const int num_commands = sizeof(commands_list) / sizeof(Command);
@@ -782,7 +784,7 @@ void add_client(int id)
                     break;
                 }
             }
-            
+
             if (formatted)
                 _printf("Already have formatted file system. We've loaded it.\n");
         }
@@ -813,7 +815,7 @@ int handle_client(int id, tcp_buffer *write_buf, char *msg, int len)
             ret = commands_list[i].handle(params, id);
             // if (!strlen(response)) _printf("Done.\n");
             handled = true;
-            if(strcmp(cmd_head,"e")==0)
+            if (strcmp(cmd_head, "e") == 0)
             {
                 send_to_buffer(write_buf, response, strlen(response));
                 return 0;
@@ -848,8 +850,7 @@ int main(int argc, char *argv[])
     if (argc < 3)
     {
         fprintf(stderr,
-                "Usage: %s <disk file name> <cylinders> <sector per cylinder> "
-                "<track-to-track delay> <port>\n",
+                "Usage: %s <disk port> <FS prot>\n",
                 argv[0]);
         exit(EXIT_FAILURE);
     }
@@ -867,7 +868,7 @@ int main(int argc, char *argv[])
 tcp_client client;
 
 // 定义磁盘文件为一个二维字符数组
-char disk_file[MAX_BLOCK_COUNT][BLOCK_SIZE];    //磁盘数据文件
+char disk_file[MAX_BLOCK_COUNT][BLOCK_SIZE]; // 磁盘数据文件
 // 定义日志文件指针
 
 // 临时缓冲区
@@ -895,7 +896,7 @@ int write_block(int block_id, char *buf, int block_num)
         disk_command.block_id = block_id + i;
         // 将数据拷贝到命令结构体中
         memcpy(disk_command.info, buf + BLOCK_SIZE * i, BLOCK_SIZE);
-        cmd_ptr=(char*)&disk_command;
+        cmd_ptr = (char *)&disk_command;
         // 发送命令到磁盘服务器
         client_send(client, cmd_ptr, sizeof(disk_command));
         // 清空临时缓冲区
@@ -921,7 +922,7 @@ int read_block(int block_id, char *buf)
     disk_cmd disk_command;
     disk_command.type = 'R';
     disk_command.block_id = block_id;
-    cmd_ptr=(char*)&disk_command;
+    cmd_ptr = (char *)&disk_command;
     client_send(client, cmd_ptr, sizeof(disk_command));
     char tmpbuf[TCP_BUF_SIZE];
 
@@ -929,7 +930,7 @@ int read_block(int block_id, char *buf)
     memset(tmpbuf, 0, TCP_BUF_SIZE);
     // 接收数据到缓冲区
     int n = client_recv(client, tmpbuf, sizeof(tmpbuf));
-    memcpy(buf,tmpbuf,n);
+    memcpy(buf, tmpbuf, n);
     if (n <= 0)
     {
         perror("Failed to receive response from disk server");
@@ -945,13 +946,13 @@ int get_disk_info()
     disk_cmd disk_command;
     disk_command.type = 'I';
     disk_command.block_id = -1;
-    cmd_ptr=(char*)&disk_command;
+    cmd_ptr = (char *)&disk_command;
     client_send(client, cmd_ptr, sizeof(disk_command));
 
     // 清空临时缓冲区
     memset(tmp, 0, sizeof(tmp));
     // 接收响应到临时缓冲区
-    int n = client_recv(client, tmp, sizeof(tmp));//这里出bug了
+    int n = client_recv(client, tmp, sizeof(tmp)); // 这里出bug了
     if (n <= 0)
     {
         perror("Failed to receive response from disk server");
@@ -965,13 +966,15 @@ int get_disk_info()
 }
 super_block spb;
 
-static void update_superblock() {
+static void update_superblock()
+{
     char buf[TCP_BUF_SIZE] = {0};
     memcpy(buf, &spb, sizeof(spb));
     write_block(0, buf, SUPERBLOCK_SIZE);
 }
 
-int init_spb() {
+int init_spb()
+{
     spb.s_magic = MAGIC_NUMBER;
     spb.s_free_inodes_count = MAX_INODE_COUNT;
 
@@ -995,10 +998,13 @@ int init_spb() {
     return 0;
 }
 
-int load_spb() {
+int load_spb()
+{
     char buf[TCP_BUF_SIZE] = {0};
-    for (int i = 0; i < SUPERBLOCK_SIZE; i++) {
-        if (read_block(i, &buf[i * BLOCK_SIZE]) < 0) {
+    for (int i = 0; i < SUPERBLOCK_SIZE; i++)
+    {
+        if (read_block(i, &buf[i * BLOCK_SIZE]) < 0)
+        {
             perror("Read from disk failed");
             return -1;
         }
@@ -1007,7 +1013,8 @@ int load_spb() {
     return 0;
 }
 
-int check_spb() {
+int check_spb()
+{
     int num_disk_block = get_disk_info();
     if (num_disk_block > MAX_BLOCK_COUNT)
         num_disk_block = MAX_BLOCK_COUNT;
@@ -1018,13 +1025,16 @@ int check_spb() {
     return 0;
 }
 
-int alloc_block() {
+int alloc_block()
+{
     if (!spb.s_free_blocks_count)
         return -1;
 
-    for (int i = 4; i < MAX_BLOCK_MAP; i++) {
+    for (int i = 4; i < MAX_BLOCK_MAP; i++)
+    {
         uint32_t block = spb.block_map[i];
-        for (int j = 0; j < 32; j++) {
+        for (int j = 0; j < 32; j++)
+        {
             if ((block >> (31 - j)) & 1)
                 continue;
 
@@ -1039,7 +1049,8 @@ int alloc_block() {
     return -1;
 }
 
-int free_block(uint16_t index) {
+int free_block(uint16_t index)
+{
     if (index < RESERVE_BLOCK)
         return -1;
 
@@ -1241,8 +1252,8 @@ int free_inode(inode *node, uint8_t user)
         return 0;
     }
 }
-//由上游检查文件是否存在
-// 目录型inode仅direct有效，每个指向的块中含有8个dir_item，一共有64个dir_item可以存在一个目录下
+// 由上游检查文件是否存在
+//  目录型inode仅direct有效，每个指向的块中含有8个dir_item，一共有64个dir_item可以存在一个目录下
 int add_to_dir_inode(inode *dir_node, char *name, uint8_t type, uint8_t owner, uint8_t lock)
 {
     log_message("begin add_to_dir_inode");

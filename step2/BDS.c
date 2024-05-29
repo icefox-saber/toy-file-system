@@ -1,3 +1,4 @@
+// ./BDS disk 15 15 2 8086
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>

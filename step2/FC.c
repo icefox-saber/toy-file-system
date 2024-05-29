@@ -1,4 +1,4 @@
-// FC.c
+// ./FC 8088
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <stdlib.h>

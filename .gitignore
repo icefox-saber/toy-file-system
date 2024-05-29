@@ -17,3 +17,4 @@ CMakeLists.txt
 test
 disk.txt
 disk
+test.c
