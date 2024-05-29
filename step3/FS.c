@@ -23,6 +23,7 @@
 #define MAX_BLOCK_COUNT 4096
 #define BLOCK_SIZE 256
 #define TCP_BUF_SIZE 4096
+
 extern char disk_file[MAX_BLOCK_COUNT][BLOCK_SIZE];    //磁盘数据文件
 extern tcp_client client;
 /**
@@ -801,7 +802,7 @@ int handle_client(int id, tcp_buffer *write_buf, char *msg, int len)
     memset(raw_command, 0, sizeof(raw_command));
     memset(response, 0, sizeof(response));
     memset(params, 0, sizeof(params));
-    memcpy(raw_command, msg, sizeof(raw_command));
+    memcpy(raw_command, msg, strlen(msg));
     bool handled = false;
     // 初始化响应字符串
     for (int i = 0; i < num_commands; i++)

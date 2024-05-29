@@ -1,7 +1,7 @@
 SRC = $(wildcard *.c) $(wildcard ../lib/*.c)
 LIBS = ../lib/tcp_buffer.o ../lib/tcp_utils.o ../lib/thpool.o
 CC = gcc
-CFLAGS += -I../include -Wall -Wextra -lpthread -g # Removed -fsanitize=address
+CFLAGS += -I../include -Wall -Wextra -fsanitize=address -lpthread -g # Removed -fsanitize=address
 
 all: BDS BDC
 

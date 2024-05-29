@@ -31,7 +31,7 @@ int cmd_i(tcp_buffer *write_buf, char *args, int len)
 // read cylinder sector args len
 int cmd_r(tcp_buffer *write_buf, char *args, int len)
 {
-    static char *msg0 = "error command";
+    static char *msg0 = "NO";
     static char buf[BLOCKSIZE];
     char *c = strtok(args, " ");
     char *s = strtok(NULL, " ");
@@ -47,8 +47,8 @@ int cmd_r(tcp_buffer *write_buf, char *args, int len)
     // 计算文件偏移量
     long offset = (cylinder * nsec + sector) * BLOCKSIZE;
 
-    static char *msg1 = "Error calling fseek() to set file offset";
-    static char *msg2 = "Error reading from file in cmd_r";
+    static char *msg1 = "NO";
+    static char *msg2 = "NO";
     // 定位文件偏移量
     if (fseek(fp, offset, SEEK_SET) == -1)
     {
@@ -60,10 +60,10 @@ int cmd_r(tcp_buffer *write_buf, char *args, int len)
     size_t num = fread(buf, 1, BLOCKSIZE, fp); //这里即使是空也会读入256个字符
     if (num == 0)
     {
-        send_to_buffer(write_buf, "nothing", strlen(msg2));
+        send_to_buffer(write_buf, "NO", strlen(msg2));
         return 0; // 或者返回错误代码
     }
-	char *megsyes="yes";
+	char *megsyes="Yes";
 	char *res=strcat(buf,megsyes);
     // 发送数据到缓冲区
     send_to_buffer(write_buf, res, num);
@@ -75,7 +75,7 @@ int cmd_r(tcp_buffer *write_buf, char *args, int len)
 //len:strlen(args)
 int cmd_w(tcp_buffer *write_buf, char *args, int len)
 {
-    static char *msg0 = "error command";
+    static char *msg0 = "NO";
     //static char buf[BLOCKSIZE];
     char *c = strtok(args, " ");
     char *s = strtok(NULL, " ");
@@ -95,8 +95,8 @@ int cmd_w(tcp_buffer *write_buf, char *args, int len)
     currentcyl = cylinder;
     long offset = (cylinder * nsec + sector) * BLOCKSIZE;
 
-    static char *msg1 = "Error calling fseek() to set file offset";
-    static char *msg2 = "Error writing to file in cmd_w";
+    static char *msg1 = "NO";
+    static char *msg2 = "NO";
     // 定位文件偏移量
 
     if (fseek(fp, offset, SEEK_SET) == -1)
