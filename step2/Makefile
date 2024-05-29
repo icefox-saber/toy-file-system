@@ -14,8 +14,8 @@ FC: FC.o $(LIBS)
 FS: FS.o $(LIBS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
 
-include ${SRC:.c=.d}
 
+include ${SRC:.c=.d}
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
