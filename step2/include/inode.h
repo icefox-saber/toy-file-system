@@ -15,7 +15,8 @@ typedef struct inode{
     uint16_t i_parent;                  //父inode编号（65535表示无）
     uint16_t i_direct[8];               //直接块（记录block编号，block编号统一使用uine16_t）
     uint16_t i_single_indirect;         //一层间接块
-    uint16_t reserve;
+    uint8_t i_owner;                    //owner
+    uint8_t i_lock;                     //access lock
     uint16_t i_index;
 } inode; //32 bytes
 

@@ -9,17 +9,15 @@
 inode inode_table[MAX_INODE_COUNT];
 int init_root_inode()
 {
+    int index=alloc_inode();
+    if(index!=0)
+        return -1;
     inode root;
-    root.i_index = 0;
-    root.i_mode = 1;
-    root.i_link_count = 0;
-    root.i_size = 0;
+    init_inode(&root,index,1,0,0,65535);
     root.i_timestamp = time(NULL);
-    root.i_parent = 65535;
     memset(root.i_direct, 0, sizeof(root.i_direct));
     root.i_single_indirect = 0;
     inode_table[0] = root;
-    spb.inode_map[0] |= (1 << 31);
     return 0;
 }
 
@@ -92,18 +90,19 @@ int alloc_inode()
 int free_inode(inode *node)
 {
     if (node->i_index <= 0)
-        return -1; // 不允许free root
+        return -1; // Cannot free root
     int i = node->i_index / 32;
     int j = node->i_index % 32;
     if (((spb.inode_map[i] >> (31 - j)) & 1) == 0)
-        return 1; // 此块本身已经空闲
+        return 1; // This inode is already free
     else
     {
-        for (int k = 0; k < 8; k++) // 清空direct
+        for (int k = 0; k < 8; k++) // Free direct blocks
             if (node->i_direct[k] != 0)
                 free_block(node->i_direct[k]);
-        if (node->i_single_indirect != 0) // 清空indirect
-        {
+
+        if (node->i_single_indirect != 0)
+        { // Free single indirect blocks
             uint16_t blocks[BLOCK_SIZE / sizeof(uint16_t)];
             char buf[BLOCK_SIZE];
             read_block(node->i_single_indirect, buf);
@@ -116,7 +115,7 @@ int free_inode(inode *node)
         spb.s_inodes_count--;
         spb.inode_map[i] &= ~(1 << (31 - j));
 
-        char buf[3 * BLOCK_SIZE]; // 将修改后的spb经由spb写入内存块1-3
+        char buf[3 * BLOCK_SIZE]; // Write the modified spb back to memory blocks 1-3
         memset(buf, 0, sizeof(buf));
         memcpy(buf, &spb, sizeof(spb));
         write_block(0, buf, 3);
@@ -308,8 +307,6 @@ int rmdir_from_dir_inode(inode *dir_node, char *name)
     return -1;
 }
 
-
-
 int lexic_cmp(const void *a, const void *b)
 {
     dir_item *item1 = (dir_item *)a;
@@ -330,10 +327,10 @@ int ls_dir_inode(inode *dir_node, char *ret, char *ret2, bool detailed)
     char buf[TCP_BUF_SIZE];
     bool flag = false; // 文件夹是否为空，false代表空
 
-    char dir_name[64][MAX_NAME_SIZE*2];
-    char file_name[64][MAX_NAME_SIZE*2];
-    char dir[64 * MAX_NAME_SIZE*2];
-    char file[64 * MAX_NAME_SIZE*2];
+    char dir_name[64][MAX_NAME_SIZE * 2];
+    char file_name[64][MAX_NAME_SIZE * 2];
+    char dir[64 * MAX_NAME_SIZE * 2];
+    char file[64 * MAX_NAME_SIZE * 2];
     int num_dir = 0, num_file = 0;
 
     ret[0] = '\0';
@@ -373,7 +370,7 @@ int ls_dir_inode(inode *dir_node, char *ret, char *ret2, bool detailed)
                     read_inode(&file_inode, inode_index);
                     sprintf(detailed_info, "%d %d %s\n", file_inode.i_size, file_inode.i_timestamp, "file");
                     strcat(file_name[i], " ");
-                    strcat(file_name[i], detailed_info);//这里确认后面file_name不会用来搜索
+                    strcat(file_name[i], detailed_info); // 这里确认后面file_name不会用来搜索
                 }
             }
             for (int i = 0; i < num_dir; i++)
@@ -408,12 +405,12 @@ int ls_dir_inode(inode *dir_node, char *ret, char *ret2, bool detailed)
             strcat(file, "  ");
         strcat(file, file_name[i]);
     }
-    if (flag&&!detailed)
+    if (flag && !detailed)
     {
         sprintf(ret, "%s  &  %s\n", file, dir);
         sprintf(ret2, "%s  \033[1;34m%s\033[0m\n", file, dir);
     }
-    else if(flag&&detailed)
+    else if (flag && detailed)
     {
         sprintf(ret, "%s  &  %s\n", file, dir);
         sprintf(ret2, "%s\033[1;34m%s\033[0m", file, dir);
@@ -454,25 +451,6 @@ int read_file_inode(inode *file_node, char *ret)
     uint16_t indirect_blocks[128];
     char buf[TCP_BUF_SIZE];
     memset(ret, 0, sizeof(&ret));
-
-    // if (file_node->i_link_count <= 8)
-    //     for(int i = 0; i < file_node->i_link_count; i++){
-    //         if (file_node->i_direct[i]==0) return -1;
-    //         memset(buf, 0, BLOCK_SIZE);
-    //         if (read_block(file_node->i_direct[i], buf)<0) return -1;
-    //         memcpy(ret + strlen(ret), buf, BLOCK_SIZE);  // 使用 memcpy 将块数据复制到目标字符串中，因为strcpy需要null结尾但分block可能没有！
-    //     }
-    // else{
-    //     if (file_node->i_single_indirect == 0) return -1;
-    //     if (read_block(file_node->i_single_indirect, buf) < 0) return -1;
-    //     memcpy(&indirect_blocks, buf, BLOCK_SIZE);
-    //     for (int i=0; i < file_node->i_link_count - 8; i++){
-    //         if (indirect_blocks[i] == 0) return -1;
-    //         if (read_block(indirect_blocks[i], buf)<0) return -1;
-    //         memcpy(ret + strlen(ret), buf, BLOCK_SIZE);
-    //     }
-    // }
-    // return 0;
     int total_blocks = file_node->i_link_count;
     int last_block_size = file_node->i_size % BLOCK_SIZE;
     if (last_block_size == 0 && total_blocks > 0)
@@ -528,7 +506,6 @@ int write_file_inode(inode *file_node, char *src)
     int need_link_count = (strlen(src) + BLOCK_SIZE - 1) / BLOCK_SIZE;
     int ori_link_count = file_node->i_link_count;
 
-    // printf("need: %d, ori: %d\n", need_link_count, ori_link_count);
     char tmp[need_link_count * BLOCK_SIZE];
     memset(tmp, 0, sizeof(tmp));
     memcpy(tmp, src, strlen(src) + 1);
@@ -536,7 +513,7 @@ int write_file_inode(inode *file_node, char *src)
 
     if (need_link_count <= ori_link_count)
     {
-        // 写入
+        // Write
         for (int i = 0; i < (need_link_count >= 8 ? 8 : need_link_count); i++)
         {
             memcpy(buf, tmp + i * BLOCK_SIZE, BLOCK_SIZE);
@@ -551,7 +528,7 @@ int write_file_inode(inode *file_node, char *src)
             write_block(indirect_blocks[i], buf, 1);
         }
 
-        // 归还多余block
+        // Free extra blocks
         for (int i = need_link_count; i < (ori_link_count >= 8 ? 8 : ori_link_count); i++)
         {
             free_block(file_node->i_direct[i]);
@@ -578,7 +555,7 @@ int write_file_inode(inode *file_node, char *src)
     }
     else
     {
-        // 申请不足的新结点
+        // Allocate new blocks as needed
         if (need_link_count - ori_link_count > spb.s_free_blocks_count)
             return -1;
         for (int i = ori_link_count; i < (need_link_count > 8 ? 8 : need_link_count); i++)

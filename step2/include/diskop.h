@@ -12,7 +12,6 @@
 #define MAX_BLOCK_COUNT 4096
 #define BLOCK_SIZE 256
 #define TCP_BUF_SIZE 4096
-extern FILE *log_fp;
 extern char disk_file[MAX_BLOCK_COUNT][BLOCK_SIZE];    //磁盘数据文件
 extern tcp_client client;
 /**

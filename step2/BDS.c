@@ -126,12 +126,6 @@ int handle_client(int id, tcp_buffer *write_buf, char *input_cmd, int len)
     char *cmd_pointer=(char*)&cmd;
     memset(cmd_pointer, 0, sizeof(cmd));
     memcpy(cmd_pointer, input_cmd, sizeof(cmd));
-    /*
-    cmd_t cmd
-    char *cmd_pointer=&cmd;
-    client_send(client, cmd_pointer, sizeof(cmd));
-    */
-
 
     int ret = 1;
     for (int i = 0; i < NCMD; i++)

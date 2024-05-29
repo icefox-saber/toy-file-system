@@ -18,10 +18,14 @@ int main(int argc, char *argv[])
     int port = atoi(argv[1]);
     tcp_client client = client_init("localhost", port);
     static char buf[4096];
-    
-    //int n = client_recv(client, buf, sizeof(buf));
-    //buf[n] = 0;
-    //printf("%s\n", buf);
+    char *ini="B";
+    client_send(client, ini, strlen(ini) + 1);
+    int n = client_recv(client, buf, sizeof(buf));
+    buf[n] = 0;
+    printf("%s", buf);
+    // int n = client_recv(client, buf, sizeof(buf));
+    // buf[n] = 0;
+    // printf("%s\n", buf);
     while (1)
     {
         fgets(buf, sizeof(buf), stdin);
@@ -30,7 +34,7 @@ int main(int argc, char *argv[])
         client_send(client, buf, strlen(buf) + 1);
         int n = client_recv(client, buf, sizeof(buf));
         buf[n] = 0;
-        printf("%s\n", buf);
+        printf("%s", buf);
         if (strcmp(buf, "Goodbye!") == 0)
             break;
     }

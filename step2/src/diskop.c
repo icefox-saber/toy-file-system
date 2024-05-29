@@ -7,7 +7,6 @@ tcp_client client;
 // 定义磁盘文件为一个二维字符数组
 char disk_file[MAX_BLOCK_COUNT][BLOCK_SIZE];    //磁盘数据文件
 // 定义日志文件指针
-FILE *log_fp;
 
 // 临时缓冲区
 char tmp[TCP_BUF_SIZE];
