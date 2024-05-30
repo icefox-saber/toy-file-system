@@ -36,9 +36,7 @@ int main(int argc, char *argv[])
     }
 
     printf("%s", buf);
-    // int n = client_recv(client, buf, sizeof(buf));
-    // buf[n] = 0;
-    // printf("%s\n", buf);
+
     while (1)
     {
         fgets(buf, sizeof(buf), stdin);

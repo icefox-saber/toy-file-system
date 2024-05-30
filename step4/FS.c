@@ -812,7 +812,10 @@ int handle_client(int id, tcp_buffer *write_buf, char *msg, int len)
         sscanf(raw_command, "%s %[^\n]%*c", cmd_head, params);
         if (strcmp(cmd_head, commands_list[i].cmd_head) == 0)
         {
-            ret = commands_list[i].handle(params, id);
+            if((strcmp(cmd_head, "ini")==0))
+                ret = commands_list[i].handle(params,id);
+            else
+                ret = commands_list[i].handle(params, uid[id]);
             // if (!strlen(response)) _printf("Done.\n");
             handled = true;
             if (strcmp(cmd_head, "e") == 0)
@@ -858,7 +861,7 @@ int main(int argc, char *argv[])
     int port_server = atoi(argv[2]);
     int port_client = atoi(argv[1]);
     client = client_init("localhost", port_client);
-    tcp_server server = server_init(port_server, 1, add_client, handle_client, clear_client);
+    tcp_server server = server_init(port_server, 2, add_client, handle_client, clear_client);
     static char buf[4096];
 
     server_loop(server);

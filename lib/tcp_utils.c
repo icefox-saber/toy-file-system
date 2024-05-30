@@ -275,30 +275,40 @@ void client_send(tcp_client_ *client, const char *msg, int len) {
     buffer_output(client->write_buf, client->sockfd);
 }
 
+/* Client receives at least len bytes */
+int recv_until(int sockfd, tcp_buffer *read_buf, int len) {
+    int readable = read_buf->write_index - read_buf->read_index;
+    while (readable < len) {
+        int count = buffer_input(read_buf, sockfd);
+        if (count <= 0) {
+            printf("Connection closed\n");
+            return -1;
+        }
+        readable = read_buf->write_index - read_buf->read_index;
+    }
+    return 0;
+}
+
 /* Receive a message from the server */
 int client_recv(tcp_client_ *client, char *buf, int max_len) {
     tcp_buffer *read_buf = client->read_buf;
     // read all data from the socket
     while (1) {
-        buffer_input(read_buf, client->sockfd);
-        int readable = read_buf->write_index - read_buf->read_index;
-        char *s = &read_buf->buf[read_buf->read_index];
         // the first 4 bytes is the length of the message
-        if (readable < 4) continue;
+        if (recv_until(client->sockfd, read_buf, 4) < 0) return 0;
+        char *s = &read_buf->buf[read_buf->read_index];
         // network long to host long
         int len = ntohl(*(int *)s);
-        // if the message is complete
-        if (readable >= len + 4) {
-            if (len > max_len) {
-                fprintf(stderr, "client_recv: buffer too small\n");
-                exit(EXIT_FAILURE);
-            }
-            // copy the message to buf
-            memcpy(buf, s + 4, len);
-            recycle_read(read_buf, len + 4);
-            return len;
-        } else
-            continue;
+        if (len > max_len) {
+            fprintf(stderr, "client_recv: buffer too small\n");
+            exit(EXIT_FAILURE);
+        }
+        // message complete
+        if (recv_until(client->sockfd, read_buf, len + 4) < 0) return 0;
+        // copy the message to buf
+        memcpy(buf, s + 4, len);
+        recycle_read(read_buf, len + 4);
+        return len;
     }
 }
 
