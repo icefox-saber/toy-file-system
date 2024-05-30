@@ -18,7 +18,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-
+#include<fcntl.h>
+#include<errno.h>
 #include "thpool.h"
 
 struct tcp_server_pool {     // Represents a pool of connected descriptors
@@ -160,6 +161,12 @@ tcp_server_ *server_init(int port, int num_threads, void (*add_client)(int id),
 
     // create listen socket
     int listenfd;
+    int flag = fcntl(listenfd, F_GETFL, 0); 
+    fcntl(listenfd, F_SETFL, flag | O_NONBLOCK);
+    flag = fcntl(listenfd, F_GETFL, 0); 
+    if (!(flag & O_NONBLOCK)) {
+        fprintf(stderr, "set nonblock error\n");
+    }
     listenfd = socket(AF_INET, SOCK_STREAM, 0);
     if (listenfd < 0) {
         perror("socket()");
@@ -209,11 +216,12 @@ void server_loop(tcp_server_ *server) {
         if (FD_ISSET(server->listenfd, &server->pool.ready_set)) {
             // handle new client
             int connfd = accept(server->listenfd, NULL, NULL);
-            if (connfd < 0) {
+            if (connfd > 0) {
+                add_conn(connfd, &server->pool, server->add_client);
+            } else if (connfd < 0 && !(errno == EINTR || errno == EWOULDBLOCK || errno == EAGAIN)) {
                 perror("accept()");
                 exit(EXIT_FAILURE);
             }
-            add_conn(connfd, &server->pool, server->add_client);
         }
 
         struct tcp_server_pool *p = &server->pool;

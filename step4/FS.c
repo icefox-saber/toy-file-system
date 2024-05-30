@@ -861,7 +861,7 @@ int main(int argc, char *argv[])
     int port_server = atoi(argv[2]);
     int port_client = atoi(argv[1]);
     client = client_init("localhost", port_client);
-    tcp_server server = server_init(port_server, 2, add_client, handle_client, clear_client);
+    tcp_server server = server_init(port_server, 1, add_client, handle_client, clear_client);
     static char buf[4096];
 
     server_loop(server);
